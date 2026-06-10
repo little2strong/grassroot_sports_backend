@@ -4,9 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\AdminLoginController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ClubController;
+use App\Http\Controllers\Admin\RolesController;
+use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\PlayerController;
-use App\Http\Controllers\Admin\AdminUserController;
-use App\Http\Controllers\Admin\RoleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -58,6 +59,49 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:admin'])->group(functi
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'dashboard'])->name('dashboard');
 
+    Route::group(['prefix' => 'clubs', 'as' => 'clubs.'], function () {
+        Route::get('/', [ClubController::class, 'index'])->name('index');
+       
+    });
+
+    Route::group(['prefix' => 'players', 'as' => 'players.'], function () {
+        Route::get('/', [PlayerController::class, 'index'])->name('index');
+       
+    });
+
+
+    Route::get('profile', [DashboardController::class, 'adminProfile'])->name('profile');
+    Route::get('profile-edit', [DashboardController::class, 'profileEdit'])->name('profile.edit');
+    Route::post('profile-update', [DashboardController::class, 'profileUpdate'])->name('profile.update');
+    Route::post('password-update', [DashboardController::class, 'passwordUpdate'])->name('password.update');
+
+
+   
+    Route::group(['prefix' => 'settings', 'as' => 'settings.'], function () {
+        Route::get('/', [SettingsController::class, 'index'])->name('index');
+        Route::post('store', [SettingsController::class, 'store'])->name('store');
+        Route::post('cashback/update', [SettingsController::class, 'cashbackUpdate'])->name('cashback.update');
+    });
+
+    // admins routes
+    Route::group(['prefix' => 'admins', 'as' => 'admins.'], function () {
+        Route::get('/', [AdminController::class, 'index'])->name('index');
+        Route::post('store', [AdminController::class, 'store'])->name('store');
+        Route::get('{user}/edit', [AdminController::class, 'edit'])->name('edit');
+        Route::put('{user}', [AdminController::class, 'update'])->name('update');
+        Route::post('{user}/suspend', [AdminController::class, 'suspend'])->name('suspend');
+        Route::post('{user}/change-password', [AdminController::class, 'changePassword'])->name('chnage-password');
+
+    });
+
+    Route::group(['prefix' =>  'roles', 'as' => 'roles.'], function () {
+        Route::get('/', [RolesController::class, 'index'])->name('index');
+        Route::get('/create', [RolesController::class, 'create'])->name('create');
+        Route::post('/store', [RolesController::class, 'store'])->name('store');
+        Route::get('{id}/edit', [RolesController::class, 'edit'])->name('edit');
+        Route::post('{id}/update', [RolesController::class, 'update'])->name('update');
+
+    });
     // Clubs
     // Route::resource('clubs', ClubController::class);
 
