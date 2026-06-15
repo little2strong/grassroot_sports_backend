@@ -37,14 +37,14 @@
                 <h2 class="page-content-title fw-medium fs-5">Club Management</h2>
                 <p class="page-subtitle">Manage Clubs</p>
             </div>
-           
+
             {{-- <button class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#addUserModal">
             <i class="fas fa-plus me-2"></i>Add Admin User
         </button> --}}
         </div>
 
-        
-        
+
+
 
         <!-- Main Card -->
         <div class="main-card mb-4">
@@ -133,7 +133,7 @@
                                 {{-- Actions --}}
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
-                                        <a href="{{ route('admin.clubs.edit', $club) }}"
+                                        <a href=""
                                             class="btn btn-sm btn-outline-primary" title="Edit">
                                             <i class="fas fa-pen"></i>
                                         </a>

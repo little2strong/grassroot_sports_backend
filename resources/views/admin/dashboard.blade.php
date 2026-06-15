@@ -206,17 +206,18 @@
                         @php $maxVal = max($stats['players'], $stats['clubs'], 1); @endphp
                         @foreach($dates as $data)
                         <div class="chart-col">
-                            @php
-                                $playerHeight = $data['players'] > 0 ? max(($data['players'] / $maxVal) * 180) : 0;
+                            {{-- @php
+                                // $playerHeight = $data['players'] > 0 ? max(($data['players'] / $maxVal) * 180) : 0;
+                                $playerHeight = 0;
                                 $clubHeight = $data['clubs'] > 0 ? max(($data['clubs'] / $maxVal) * 180) : 0;
-                            @endphp
+                            @endphp --}}
                             @if($data['clubs'] > 0)
-                                <div class="w-100 rounded-top chart-bar" style="height:{{ $clubHeight }}px;background:#198754;"></div>
+                                {{-- <div class="w-100 rounded-top chart-bar" style="height:{{ $clubHeight }}px;background:#198754;"></div> --}}
                             @else
                                 <div class="w-100" style="height:2px;background:#e9ecef;"></div>
                             @endif
                             @if($data['players'] > 0)
-                                <div class="w-100 rounded-top chart-bar" style="height:{{ $playerHeight }}px;background:#0d6efd;"></div>
+                                {{-- <div class="w-100 rounded-top chart-bar" style="height:{{ $playerHeight }}px;background:#0d6efd;"></div> --}}
                             @else
                                 <div class="w-100" style="height:2px;background:#e9ecef;"></div>
                             @endif

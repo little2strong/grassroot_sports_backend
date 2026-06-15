@@ -12,7 +12,7 @@ class Club extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'owner_id', 'name', 'slug', 'logo', 'cover_image',
+        'owner_id', 'name', 'slug', 'short_name', 'logo', 'cover_image',
         'description', 'country', 'city', 'address', 'website',
         'founded_year', 'is_public', 'is_verified',
         'hide_player_names_publicly', 'hide_player_photos_publicly',

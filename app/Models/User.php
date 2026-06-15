@@ -48,6 +48,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(ClubMember::class);
     }
+    public function ownedClub()
+    {
+        return $this->hasOne(Club::class, 'owner_id');
+    }
 
     public function clubs()
     {
