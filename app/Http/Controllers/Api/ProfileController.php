@@ -10,6 +10,7 @@ use App\Models\ClubMember;
 use App\Models\Invitation;
 use App\Models\PlayerProfile;
 use App\Models\TeamMember;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -69,6 +70,7 @@ class ProfileController extends Controller
     public function player(Request $request): JsonResponse
     {
         $user = $request->user();
+        // dd($user->clubMemberships);
 
         if ($user->user_type !== 'player') {
             return response()->json([
@@ -76,7 +78,7 @@ class ProfileController extends Controller
             ], 403);
         }
 
-        $user->load(['playerProfile', 'clubs', 'teams']);
+        $user->load(['playerProfile', 'clubs', 'clubMemberships.club', 'teams']);
 
         return response()->json([
             'message' => 'Player profile fetched successfully.',
@@ -230,6 +232,123 @@ class ProfileController extends Controller
         ]);
     }
 
+    public function createSquad(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->user_type !== 'club') {
+            return response()->json(['message' => 'Only club accounts can create squads.'], 403);
+        }
+
+        $club = $user->ownedClub()->first();
+
+        if (!$club) {
+            return response()->json(['message' => 'Club profile not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'short_name' => 'sometimes|nullable|string|max:10',
+            'primary_color' => 'sometimes|nullable|string|max:20',
+            'secondary_color' => 'sometimes|nullable|string|max:20',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        $teamData = array_merge($validated, ['club_id' => $club->id]);
+
+        $teamData['primary_color'] = $teamData['primary_color'] ?? '#1e3a5f';
+        $teamData['secondary_color'] = $teamData['secondary_color'] ?? '#ffffff';
+
+        $team = Team::create($teamData);
+
+        return response()->json([
+            'message' => 'Squad created successfully.',
+            'data' => [
+                'squad' => [
+                    'id' => $team->id,
+                    'name' => $team->name,
+                    'slug' => $team->slug,
+                    'short_name' => $team->short_name,
+                    'primary_color' => $team->primary_color,
+                    'secondary_color' => $team->secondary_color,
+                    'is_active' => $team->is_active,
+                ],
+            ],
+        ], 201);
+    }
+
+    public function addPlayerToSquad(Request $request, int $teamId): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->user_type !== 'club') {
+            return response()->json(['message' => 'Only club accounts can add players to squads.'], 403);
+        }
+
+        $club = $user->ownedClub()->first();
+
+        if (!$club) {
+            return response()->json(['message' => 'Club profile not found.'], 404);
+        }
+
+        $team = Team::query()->find($teamId);
+
+        if (!$team || $team->club_id !== $club->id) {
+            return response()->json(['message' => 'Squad not found for your club.'], 404);
+        }
+
+        $validated = $request->validate([
+            'player_id' => [
+                'required_without:email',
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($q) => $q->where('user_type', 'player')->where('is_active', true)),
+            ],
+            'email' => 'required_without:player_id|nullable|email|max:255',
+            'role' => 'sometimes|required|in:player,captain,manager,scorer',
+            'jersey_number' => 'sometimes|nullable|integer|min:0',
+        ]);
+
+        $invitee = isset($validated['player_id'])
+            ? User::query()->where('user_type', 'player')->find($validated['player_id'])
+            : User::query()->where('email', $validated['email'])->where('user_type', 'player')->where('is_active', true)->first();
+
+        if (!$invitee) {
+            return response()->json(['message' => 'Player not found.'], 422);
+        }
+
+        $existing = $team->members()->where('user_id', $invitee->id)->first();
+
+        if ($existing && $existing->is_active) {
+            return response()->json(['message' => 'Player is already an active member of this squad.'], 422);
+        }
+
+        $member = \App\Models\TeamMember::updateOrCreate(
+            ['team_id' => $team->id, 'user_id' => $invitee->id],
+            [
+                'role' => $validated['role'] ?? 'player',
+                'jersey_number' => $validated['jersey_number'] ?? null,
+                'is_active' => true,
+                'joined_at' => now(),
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Player added to squad.',
+            'data' => [
+                'member' => [
+                    'id' => $member->id,
+                    'team_id' => $member->team_id,
+                    'user_id' => $member->user_id,
+                    'role' => $member->role,
+                    'jersey_number' => $member->jersey_number,
+                    'is_active' => (bool)$member->is_active,
+                    'joined_at' => optional($member->joined_at)->toIso8601String(),
+                ],
+            ],
+        ], 201);
+    }
+
     public function invitePlayerToClub(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -268,19 +387,20 @@ class ProfileController extends Controller
             'expires_in_days' => 'nullable|integer|min:1|max:30',
         ]);
 
-        $player = isset($validated['player_id'])
+        $invitee = isset($validated['player_id'])
             ? User::query()->where('user_type', 'player')->find($validated['player_id'])
             : User::query()
                 ->where('email', $validated['email'])
                 ->where('user_type', 'player')
                 ->where('is_active', true)
                 ->first();
+        // dd($invitee, $request->all());
 
-        $email = $player?->email ?? $validated['email'];
+        $email = $invitee?->email ?? $validated['email'];
 
-        $alreadyMember = $player && $club->members()
+        $alreadyMember = $invitee && $club->members()
             ->active()
-            ->where('user_id', $player->id)
+            ->where('user_id', $invitee->id)
             ->exists();
 
         if ($alreadyMember) {
@@ -309,8 +429,8 @@ class ProfileController extends Controller
             'team_id' => $validated['team_id'] ?? null,
             'invited_by' => $user->id,
             'invited_email' => $email,
-            'invited_phone' => $player?->phone,
-            'invited_user_id' => $player?->id,
+            'invited_phone' => $invitee?->phone,
+            'invited_user_id' => $invitee?->id,
             'role' => $validated['role'] ?? 'player',
             'status' => 'pending',
             'expires_at' => now()->addDays($validated['expires_in_days'] ?? 7),
@@ -319,9 +439,9 @@ class ProfileController extends Controller
 
         $invitation->load(['club', 'team', 'invitedBy', 'invitedUser']);
 
-        if ($player) {
+        if ($invitee) {
             AppNotification::create([
-                'user_id' => $player->id,
+                'user_id' => $invitee->id,
                 'type' => AppNotification::TYPE_INVITATION_RECEIVED,
                 'title' => 'Club invitation received',
                 'message' => $club->name . ' invited you to join as ' . $invitation->role_label . '.',
@@ -372,13 +492,13 @@ class ProfileController extends Controller
             ], 422);
         }
 
-        $player = $invitation->invitedUser ?: User::query()
+        $user = $invitation->invitedUser ?: User::query()
             ->where('email', $invitation->invited_email)
             ->where('user_type', 'player')
             ->where('is_active', true)
             ->first();
 
-        if (!$player) {
+        if (!$user) {
             return response()->json([
                 'message' => 'Please register as a player with the invited email before accepting this invitation.',
             ], 422);
@@ -387,7 +507,7 @@ class ProfileController extends Controller
         ClubMember::updateOrCreate(
             [
                 'club_id' => $invitation->club_id,
-                'user_id' => $player->id,
+                'user_id' => $user->id,
             ],
             [
                 'role' => $invitation->role,
@@ -400,7 +520,7 @@ class ProfileController extends Controller
             TeamMember::updateOrCreate(
                 [
                     'team_id' => $invitation->team_id,
-                    'user_id' => $player->id,
+                    'user_id' => $user->id,
                 ],
                 [
                     'role' => in_array($invitation->role, ['captain', 'manager', 'scorer'])
@@ -412,7 +532,7 @@ class ProfileController extends Controller
             );
         }
 
-        $invitation->accept($player->id);
+        $invitation->accept($user->id);
         $invitation->refresh()->load(['club', 'team', 'invitedBy', 'invitedUser']);
 
         return response()->json([
@@ -460,6 +580,7 @@ class ProfileController extends Controller
     {
         $profile = $user->playerProfile;
 
+
         return [
             'user' => [
                 'id' => $user->id,
@@ -494,16 +615,30 @@ class ProfileController extends Controller
                 'average' => $profile->average,
                 'is_public_profile' => $profile->is_public_profile,
             ] : null,
-            'clubs' => $user->clubs->map(fn ($club) => [
-                'id' => $club->id,
-                'name' => $club->name,
-                'slug' => $club->slug,
-                'short_name' => $club->short_name,
-                'logo_url' => $this->assetUrl($club->logo),
-                'role' => $club->pivot->role,
-                'status' => $club->pivot->status,
-                'joined_at' => optional($club->pivot->joined_at)->toIso8601String(),
-            ])->values(),
+            'clubs' => $user->clubs->isNotEmpty()
+                ? $user->clubs->map(fn ($club) => [
+                    'id' => $club->id,
+                    'name' => $club->name,
+                    'slug' => $club->slug,
+                    'short_name' => $club->short_name,
+                    'logo_url' => $this->assetUrl($club->logo),
+                    'role' => $club->pivot->role,
+                    'status' => $club->pivot->status,
+                    'joined_at' => optional($club->pivot->joined_at)->toIso8601String(),
+                ])
+                : $user->clubMemberships
+                    ->filter(fn ($membership) => $membership->club)
+                    ->map(fn ($membership) => [
+                        'id' => $membership->club->id,
+                        'name' => $membership->club->name,
+                        'slug' => $membership->club->slug,
+                        'short_name' => $membership->club->short_name,
+                        'logo_url' => $this->assetUrl($membership->club->logo),
+                        'role' => $membership->role,
+                        'status' => $membership->status,
+                        'joined_at' => optional($membership->joined_at)->toIso8601String(),
+                    ])
+                    ->values(),
             'teams' => $user->teams->map(fn ($team) => [
                 'id' => $team->id,
                 'club_id' => $team->club_id,
@@ -582,6 +717,7 @@ class ProfileController extends Controller
             'status' => $invitation->status,
             'status_label' => $invitation->status_label,
             'message' => $invitation->message,
+            'token' => $invitation->token,
             'accept_url' => $invitation->accept_url,
             'reject_url' => $invitation->reject_url,
             'expires_at' => optional($invitation->expires_at)->toIso8601String(),
