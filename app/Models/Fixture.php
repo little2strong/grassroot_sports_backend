@@ -12,7 +12,7 @@ class Fixture extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'club_id', 'home_team_id', 'away_team_id', 'venue_id',
+        'club_id', 'home_team_id', 'home_opponent_name', 'home_opponent_players', 'away_team_id', 'away_opponent_name', 'away_opponent_players', 'venue_id',
         'scheduled_date', 'scheduled_time', 'match_type',
         'overs_per_innings', 'ball_type', 'status',
         'toss_winner_team_id', 'toss_decision',
@@ -20,13 +20,15 @@ class Fixture extends Model
         'man_of_the_match_id', 'result_description',
         'home_team_runs', 'home_team_wickets', 'home_team_overs',
         'away_team_runs', 'away_team_wickets', 'away_team_overs',
-        'is_public', 'public_share_slug', 'created_by',
+        'is_public', 'public_share_slug', 'created_by', 'scorer_user_id', 'scorer_assigned_at', 'club_plays_home',
         'published_at', 'started_at', 'completed_at',
     ];
 
     protected $casts = [
         'scheduled_date' => 'date',
         'scheduled_time' => 'datetime:H:i',
+        'home_opponent_players' => 'array',
+        'away_opponent_players' => 'array',
         'overs_per_innings' => 'integer',
         'home_team_runs' => 'integer',
         'home_team_wickets' => 'integer',
@@ -35,6 +37,8 @@ class Fixture extends Model
         'away_team_wickets' => 'integer',
         'away_team_overs' => 'decimal:1',
         'is_public' => 'boolean',
+        'club_plays_home' => 'boolean',
+        'scorer_assigned_at' => 'datetime',
         'published_at' => 'datetime',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
@@ -87,6 +91,11 @@ class Fixture extends Model
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function scorer()
+    {
+        return $this->belongsTo(User::class, 'scorer_user_id');
     }
 
     public function availability()
@@ -161,6 +170,78 @@ class Fixture extends Model
     public function scopeForClub($query, int $clubId)
     {
         return $query->where('club_id', $clubId);
+    }
+
+    public function getHomeDisplayNameAttribute(): ?string
+    {
+        return $this->homeTeam?->name ?? $this->home_opponent_name;
+    }
+
+    public function getAwayDisplayNameAttribute(): ?string
+    {
+        return $this->awayTeam?->name ?? $this->away_opponent_name;
+    }
+
+    public function isHomeExternal(): bool
+    {
+        return is_null($this->home_team_id) && filled($this->home_opponent_name);
+    }
+
+    public function isAwayExternal(): bool
+    {
+        return is_null($this->away_team_id) && filled($this->away_opponent_name);
+    }
+
+    public function clubPlaysHome(): bool
+    {
+        return $this->club_plays_home ?? true;
+    }
+
+    public function clubTeam()
+    {
+        return $this->clubPlaysHome() ? $this->homeTeam : $this->awayTeam;
+    }
+
+    public function clubTeamId(): ?int
+    {
+        return $this->clubPlaysHome() ? $this->home_team_id : $this->away_team_id;
+    }
+
+    public function opponentPlayers(): ?array
+    {
+        return $this->clubPlaysHome() ? $this->away_opponent_players : $this->home_opponent_players;
+    }
+
+    public function opponentName(): ?string
+    {
+        return $this->clubPlaysHome() ? $this->away_opponent_name : $this->home_opponent_name;
+    }
+
+    public function hasOpponentPlayers(): bool
+    {
+        return filled($this->opponentPlayers());
+    }
+
+    public function hasClubMatchSquad(): bool
+    {
+        $teamId = $this->clubTeamId();
+
+        if (!$teamId) {
+            return false;
+        }
+
+        return $this->squads()
+            ->where('team_id', $teamId)
+            ->where('position', 'playing_xi')
+            ->exists();
+    }
+
+    public function isMatchReady(): bool
+    {
+        return $this->clubTeamId() !== null
+            && $this->hasClubMatchSquad()
+            && $this->hasOpponentPlayers()
+            && $this->scorer_user_id !== null;
     }
 
     public function getPublicUrlAttribute(): string

@@ -1,0 +1,317 @@
+{
+  "info": {
+    "_postman_id": "d7f5c3a0-5d42-4dd4-8f76-3f0f4f0a8a11",
+    "name": "Cricket OS - Fixtures",
+    "description": "Postman collection for authentication, club squads, and fixture management in Cricket OS.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "club_id",
+      "value": "1"
+    },
+    {
+      "key": "fixture_id",
+      "value": "1"
+    },
+    {
+      "key": "team_id",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"club@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login and copy the returned token into the collection variable `token`."
+          }
+        },
+        {
+          "name": "Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "user"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Club Fixtures",
+      "item": [
+        {
+          "name": "List Club Squads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/club/{{club_id}}/squads",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "club",
+                "{{club_id}}",
+                "squads"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Squad Players",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/club/squads/{{team_id}}/players",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "club",
+                "squads",
+                "{{team_id}}",
+                "players"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Fixtures",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/club/{{club_id}}/fixtures",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "club",
+                "{{club_id}}",
+                "fixtures"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Fixture",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"opponent_name\": \"Dhaka Warriors\",\n  \"club_plays_home\": true,\n  \"venue_id\": 1,\n  \"scheduled_date\": \"2026-07-05\",\n  \"scheduled_time\": \"15:30\",\n  \"match_type\": \"t20\",\n  \"overs_per_innings\": 20,\n  \"ball_type\": \"leather\",\n  \"status\": \"draft\",\n  \"is_public\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/club/{{club_id}}/fixtures",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "club",
+                "{{club_id}}",
+                "fixtures"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Show Fixture",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/club/{{club_id}}/fixtures/{{fixture_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "club",
+                "{{club_id}}",
+                "fixtures",
+                "{{fixture_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Fixture",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"opponent_name\": \"Dhaka Warriors\",\n  \"club_plays_home\": true,\n  \"venue_id\": 1,\n  \"scheduled_date\": \"2026-07-06\",\n  \"scheduled_time\": \"16:00\",\n  \"match_type\": \"t20\",\n  \"overs_per_innings\": 20,\n  \"ball_type\": \"leather\",\n  \"status\": \"published\",\n  \"is_public\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/club/{{club_id}}/fixtures/{{fixture_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "club",
+                "{{club_id}}",
+                "fixtures",
+                "{{fixture_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Import Fixtures CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "fixture_file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/club/{{club_id}}/fixtures/import",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "club",
+                "{{club_id}}",
+                "fixtures",
+                "import"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

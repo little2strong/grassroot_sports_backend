@@ -1,0 +1,6 @@
+title,match_date,match_time,match_type,format,ground_name,address,city,state,opponent_team,overs,status,notes
+Practice Match,2026-07-10,09:30,Friendly,T20,National Cricket Stadium,Mirpur,Dhaka,Dhaka,Tigers CC,20,draft,Pre-season practice
+League Match 1,2026-07-15,14:00,League,ODI,Sher-e-Bangla Stadium,Mirpur,Dhaka,Dhaka,Lions CC,50,published,First league match
+Quarter Final,2026-07-25,10:00,Tournament,T20,Zila Stadium,Court Road,Khulna,Khulna,Royals CC,20,draft,Quarter final fixture
+Semi Final,2026-08-02,09:00,Tournament,T20,City Cricket Ground,Uttara,Dhaka,Dhaka,Warriors CC,20,draft,
+Final Match,2026-08-10,15:30,Tournament,T20,National Cricket Stadium,Mirpur,Dhaka,Dhaka,Champions CC,20,published,Championship final

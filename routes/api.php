@@ -32,8 +32,14 @@ Route::middleware('auth:sanctum')->prefix('club')->group(function () {
     Route::post('/invitations', [ProfileController::class, 'invitePlayerToClub']);
     Route::get('/{clubId}/squads', [ClubController::class, 'squads']);
     Route::get('/squads/{teamId}/players', [ClubController::class, 'squadPlayers']);
+    Route::get('/{clubId}/fixtures', [ClubController::class, 'listFixtures']);
     Route::post('/{clubId}/fixtures', [ClubController::class, 'createFixture']);
-    Route::post('/{clubId}/fixtures/import', [ClubController::class, 'importFixtures']);
+    Route::get('/{clubId}/fixtures/{fixtureId}', [ClubController::class, 'showFixture']);
+    Route::post('/{clubId}/fixtures/{fixtureId}', [ClubController::class, 'updateFixture']);
+    Route::post('/{clubId}/fixtures/{fixtureId}/club-squad', [ClubController::class, 'setFixtureClubSquad']);
+    Route::post('/{clubId}/fixtures/{fixtureId}/opponent-players', [ClubController::class, 'setFixtureOpponentPlayers']);
+    Route::post('/{clubId}/fixtures/{fixtureId}/scorer', [ClubController::class, 'setFixtureScorer']);
+    Route::post('/{clubId}/import/fixtures', [ClubController::class, 'importFixtures']);
 });
 
 Route::prefix('auth')->name('auth.')->group(function () {
