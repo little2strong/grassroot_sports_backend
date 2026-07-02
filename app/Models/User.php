@@ -60,6 +60,16 @@ class User extends Authenticatable
             ->wherePivot('status', 'active');
     }
 
+    public function getFullNameAttribute(): string
+    {
+        return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+    }
+
+    public function getNameAttribute(): string
+    {
+        return $this->full_name ?: (string) $this->email;
+    }
+
     public function teamMemberships()
     {
         return $this->hasMany(TeamMember::class);

@@ -11,6 +11,7 @@ class BowlingFigure extends Model
 
     protected $fillable = [
         'innings_id', 'match_id', 'fixture_id', 'user_id', 'team_id',
+        'external_player_index', 'external_player_name',
         'overs', 'balls_bowled', 'maidens', 'runs_conceded', 'wickets',
         'wides_bowled', 'no_balls_bowled', 'is_current_bowler',
     ];

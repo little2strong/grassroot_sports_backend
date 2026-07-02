@@ -11,6 +11,7 @@ class BattingScore extends Model
 
     protected $fillable = [
         'innings_id', 'match_id', 'fixture_id', 'user_id', 'team_id',
+        'external_player_index', 'external_player_name',
         'batting_order', 'is_on_strike', 'has_batted',
         'runs', 'balls_faced', 'fours', 'sixes',
         'is_out', 'dismissal_type',

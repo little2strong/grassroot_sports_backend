@@ -2,8 +2,11 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClubController;
+use App\Http\Controllers\Api\PlayerController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PublicMatchController;
 use App\Http\Controllers\Api\RegisterController;
+use App\Http\Controllers\Api\ScorerController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +20,20 @@ Route::get('/clubs/{club}/players', [ProfileController::class, 'publicClubPlayer
 Route::get('/invitations/{token}/accept', [ProfileController::class, 'acceptInvitation']);
 Route::get('/invitations/{token}/reject', [ProfileController::class, 'rejectInvitation']);
 
+/*
+|--------------------------------------------------------------------------
+| Public match APIs — no authentication required
+|--------------------------------------------------------------------------
+*/
+Route::prefix('public')->group(function () {
+    Route::get('/matches/live', [PublicMatchController::class, 'liveMatches']);
+    Route::get('/matches/upcoming', [PublicMatchController::class, 'upcomingMatches']);
+    Route::get('/matches/completed', [PublicMatchController::class, 'completedMatches']);
+    Route::get('/matches/{slug}/score', [PublicMatchController::class, 'score']);
+    Route::get('/matches/{slug}', [PublicMatchController::class, 'show']);
+    Route::get('/fixtures/{fixtureId}/score', [PublicMatchController::class, 'scoreByFixtureId']);
+});
+
 Route::middleware('auth:sanctum')->prefix('profile')->group(function () {
     Route::get('/player', [ProfileController::class, 'player']);
     Route::post('/player', [ProfileController::class, 'updatePlayer']);
@@ -28,6 +45,13 @@ Route::middleware('auth:sanctum')->prefix('profile')->group(function () {
     Route::post('/club/squads/{teamId}/players', [ProfileController::class, 'addPlayerToSquad']);
 });
 
+Route::middleware('auth:sanctum')->prefix('player')->group(function () {
+    Route::get('/fixtures', [PlayerController::class, 'listFixtures']);
+    Route::get('/fixtures/{fixtureId}', [PlayerController::class, 'showFixture']);
+    Route::post('/fixtures/{fixtureId}/availability', [PlayerController::class, 'setFixtureAvailability']);
+    Route::post('/availability', [PlayerController::class, 'bulkSetAvailability']);
+});
+
 Route::middleware('auth:sanctum')->prefix('club')->group(function () {
     Route::post('/invitations', [ProfileController::class, 'invitePlayerToClub']);
     Route::get('/{clubId}/squads', [ClubController::class, 'squads']);
@@ -36,10 +60,25 @@ Route::middleware('auth:sanctum')->prefix('club')->group(function () {
     Route::post('/{clubId}/fixtures', [ClubController::class, 'createFixture']);
     Route::get('/{clubId}/fixtures/{fixtureId}', [ClubController::class, 'showFixture']);
     Route::post('/{clubId}/fixtures/{fixtureId}', [ClubController::class, 'updateFixture']);
+    Route::get('/{clubId}/fixtures/{fixtureId}/availability', [ClubController::class, 'listFixtureAvailability']);
     Route::post('/{clubId}/fixtures/{fixtureId}/club-squad', [ClubController::class, 'setFixtureClubSquad']);
     Route::post('/{clubId}/fixtures/{fixtureId}/opponent-players', [ClubController::class, 'setFixtureOpponentPlayers']);
     Route::post('/{clubId}/fixtures/{fixtureId}/scorer', [ClubController::class, 'setFixtureScorer']);
     Route::post('/{clubId}/import/fixtures', [ClubController::class, 'importFixtures']);
+});
+
+Route::middleware('auth:sanctum')->prefix('scorer')->group(function () {
+    Route::get('/fixtures/{fixtureId}/readiness', [ScorerController::class, 'readiness']);
+    Route::post('/fixtures/{fixtureId}/toss', [ScorerController::class, 'recordToss']);
+    Route::post('/fixtures/{fixtureId}/start', [ScorerController::class, 'startMatch']);
+    Route::get('/matches/{matchId}/live', [ScorerController::class, 'liveScore']);
+    Route::post('/matches/{matchId}/balls', [ScorerController::class, 'recordBall']);
+    Route::post('/matches/{matchId}/change-bowler', [ScorerController::class, 'changeBowler']);
+    Route::post('/matches/{matchId}/change-batter', [ScorerController::class, 'changeBatter']);
+    Route::post('/matches/{matchId}/end-innings', [ScorerController::class, 'endInnings']);
+    Route::post('/matches/{matchId}/start-second-innings', [ScorerController::class, 'startSecondInnings']);
+    Route::post('/matches/{matchId}/pause', [ScorerController::class, 'pauseMatch']);
+    Route::post('/matches/{matchId}/resume', [ScorerController::class, 'resumeMatch']);
 });
 
 Route::prefix('auth')->name('auth.')->group(function () {

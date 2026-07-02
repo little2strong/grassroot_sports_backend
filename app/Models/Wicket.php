@@ -12,7 +12,10 @@ class Wicket extends Model
     protected $fillable = [
         'ball_event_id', 'innings_id', 'match_id', 'fixture_id',
         'dismissed_batter_id', 'dismissal_type',
-        'bowler_id', 'fielder_one_id', 'fielder_two_id',
+        'external_dismissed_batter_index', 'external_dismissed_batter_name',
+        'bowler_id', 'external_bowler_index',
+        'fielder_one_id', 'external_fielder_one_index',
+        'fielder_two_id', 'external_fielder_two_index',
         'runs_at_dismissal', 'description',
     ];
 

@@ -15,7 +15,7 @@ class Fixture extends Model
         'club_id', 'home_team_id', 'home_opponent_name', 'home_opponent_players', 'away_team_id', 'away_opponent_name', 'away_opponent_players', 'venue_id',
         'scheduled_date', 'scheduled_time', 'match_type',
         'overs_per_innings', 'ball_type', 'status',
-        'toss_winner_team_id', 'toss_decision',
+        'toss_winner_team_id', 'toss_decision', 'toss_winner_side',
         'result_type', 'result_margin', 'winner_team_id',
         'man_of_the_match_id', 'result_description',
         'home_team_runs', 'home_team_wickets', 'home_team_overs',

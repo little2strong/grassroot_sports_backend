@@ -14,6 +14,8 @@ class Innings extends Model
         'innings_number', 'runs', 'wickets', 'overs', 'legal_deliveries',
         'extras_total', 'wides', 'no_balls', 'byes', 'leg_byes', 'penalty_runs',
         'target', 'striker_id', 'non_striker_id', 'current_bowler_id',
+        'external_striker_index', 'external_non_striker_index', 'external_bowler_index',
+        'batting_is_club', 'bowling_is_club',
         'result', 'result_note', 'total_batters',
         'started_at', 'ended_at',
     ];
@@ -32,6 +34,8 @@ class Innings extends Model
         'penalty_runs' => 'integer',
         'target' => 'integer',
         'total_batters' => 'integer',
+        'batting_is_club' => 'boolean',
+        'bowling_is_club' => 'boolean',
         'started_at' => 'datetime',
         'ended_at' => 'datetime',
     ];

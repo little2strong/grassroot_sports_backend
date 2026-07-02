@@ -61,12 +61,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:admin'])->group(functi
 
     Route::group(['prefix' => 'clubs', 'as' => 'clubs.'], function () {
         Route::get('/', [ClubController::class, 'index'])->name('index');
-       
+        Route::get('/{club}', [ClubController::class, 'show'])->name('show');
+        Route::post('/{club}/toggle-verified', [ClubController::class, 'toggleVerified'])->name('toggle-verified');
     });
 
     Route::group(['prefix' => 'players', 'as' => 'players.'], function () {
         Route::get('/', [PlayerController::class, 'index'])->name('index');
-       
+        Route::get('/{player}', [PlayerController::class, 'show'])->name('show');
+        Route::post('/{player}/toggle-active', [PlayerController::class, 'toggleActive'])->name('toggle-active');
     });
 
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Availability;
 use App\Models\ClubMember;
 use App\Models\Club;
 use App\Models\Fixture;
@@ -234,6 +235,114 @@ class ClubController extends Controller
         ]);
     }
 
+    public function listFixtureAvailability(Request $request, int $clubId, int $fixtureId): JsonResponse
+    {
+        $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
+
+        if (!$fixture) {
+            return response()->json(['message' => 'Fixture not found or access denied.'], 404);
+        }
+
+        $club = $this->resolveClub($request, $clubId);
+
+        $validated = $request->validate([
+            'team_id' => [
+                'sometimes',
+                'integer',
+                Rule::exists('teams', 'id')->where(fn ($query) => $query->where('club_id', $club->id)),
+            ],
+            'status' => ['sometimes', Rule::in(['available', 'maybe', 'unavailable', 'pending'])],
+        ]);
+
+        $teamId = $validated['team_id'] ?? $fixture->clubTeamId();
+
+        if (!$teamId) {
+            return response()->json(['message' => 'Select a club squad for this fixture first.'], 422);
+        }
+
+        $team = Team::query()->where('id', $teamId)->where('club_id', $club->id)->first();
+
+        if (!$team) {
+            return response()->json(['message' => 'Club team not found.'], 404);
+        }
+
+        $members = TeamMember::query()
+            ->where('team_id', $team->id)
+            ->where('is_active', true)
+            ->with(['user.playerProfile'])
+            ->get();
+
+        $availabilityByUser = Availability::query()
+            ->where('fixture_id', $fixture->id)
+            ->where('team_id', $team->id)
+            ->get()
+            ->keyBy('user_id');
+
+        $players = $members->map(function (TeamMember $member) use ($availabilityByUser) {
+            $user = $member->user;
+            $availability = $availabilityByUser->get($member->user_id);
+            $fullName = trim(($user?->first_name ?? '') . ' ' . ($user?->last_name ?? ''));
+
+            return [
+                'user_id' => $member->user_id,
+                'name' => $fullName ?: $user?->email,
+                'email' => $user?->email,
+                'primary_role' => $user?->playerProfile?->primary_role,
+                'role_label' => $user?->playerProfile?->role_label,
+                'team_role' => $member->role,
+                'jersey_number' => $member->jersey_number,
+                'availability' => $availability ? [
+                    'status' => $availability->status,
+                    'status_label' => $availability->status_label,
+                    'reason' => $availability->reason,
+                    'responded_at' => $availability->responded_at?->toIso8601String(),
+                ] : [
+                    'status' => 'pending',
+                    'status_label' => 'Pending',
+                    'reason' => null,
+                    'responded_at' => null,
+                ],
+            ];
+        });
+
+        if (!empty($validated['status'])) {
+            $players = $players->filter(function (array $player) use ($validated) {
+                return $player['availability']['status'] === $validated['status'];
+            })->values();
+        }
+
+        $allPlayers = $members->map(function (TeamMember $member) use ($availabilityByUser) {
+            $availability = $availabilityByUser->get($member->user_id);
+
+            return $availability?->status ?? 'pending';
+        });
+
+        return response()->json([
+            'message' => 'Fixture availability fetched successfully.',
+            'data' => [
+                'fixture' => [
+                    'id' => $fixture->id,
+                    'scheduled_date' => $fixture->scheduled_date?->toDateString(),
+                    'scheduled_time' => $fixture->scheduled_time?->format('H:i'),
+                    'opponent_name' => $fixture->opponentName(),
+                ],
+                'team' => [
+                    'id' => $team->id,
+                    'name' => $team->name,
+                    'short_name' => $team->short_name,
+                ],
+                'summary' => [
+                    'total' => $members->count(),
+                    'available' => $allPlayers->filter(fn ($status) => $status === 'available')->count(),
+                    'maybe' => $allPlayers->filter(fn ($status) => $status === 'maybe')->count(),
+                    'unavailable' => $allPlayers->filter(fn ($status) => $status === 'unavailable')->count(),
+                    'pending' => $allPlayers->filter(fn ($status) => $status === 'pending')->count(),
+                ],
+                'players' => $players->values(),
+            ],
+        ]);
+    }
+
     public function setFixtureClubSquad(Request $request, int $clubId, int $fixtureId): JsonResponse
     {
         $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
@@ -247,37 +356,30 @@ class ClubController extends Controller
         }
 
         $club = $this->resolveClub($request, $clubId);
-        // $teamId = $fixture->clubTeamId();
-
-        // if (!$teamId) {
-        //     return response()->json(['message' => 'Fixture does not have a club team selected yet.'], 422);
-        // }
 
         $validated = $request->validate([
             'team_id' => [
                 'sometimes',
-                'nullable',
                 'integer',
                 Rule::exists('teams', 'id')->where(fn ($query) => $query->where('club_id', $club->id)),
             ],
-            // 'players' => 'required|array|min:1|max:25',
-            // 'players.*.user_id' => [
-            //     'required',
-            //     'integer',
-            //     Rule::exists('users', 'id'),
-            // ],
-            // 'players.*.position' => ['sometimes', Rule::in(['playing_xi', 'reserve', 'twelfth_man'])],
-            // 'players.*.jersey_number' => 'sometimes|nullable|integer|min:0',
-            // 'players.*.is_captain' => 'sometimes|boolean',
-            // 'players.*.is_wicket_keeper' => 'sometimes|boolean',
+            'players' => 'required|array|min:1|max:25',
+            'players.*.user_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id'),
+            ],
+            'players.*.position' => ['sometimes', Rule::in(['playing_xi', 'reserve', 'twelfth_man'])],
+            'players.*.jersey_number' => 'sometimes|nullable|integer|min:0',
+            'players.*.is_captain' => 'sometimes|boolean',
+            'players.*.is_wicket_keeper' => 'sometimes|boolean',
+            'allow_unavailable' => 'sometimes|boolean',
+            'allow_maybe' => 'sometimes|boolean',
         ]);
+
         $teamId = $validated['team_id'] ?? $fixture->clubTeamId();
-        // dd($validated['team_id'],$teamId);
-
-        // if (array_key_exists('team_id', $validated) && (int) $validated['team_id'] !== $teamId) {
-        //     return response()->json(['message' => 'Team id must match the club side of this fixture.'], 422);
-        // }
-
+        $allowUnavailable = $request->boolean('allow_unavailable');
+        $allowMaybe = $request->has('allow_maybe') ? $request->boolean('allow_maybe') : true;
 
         $team = Team::query()->where('id', $teamId)->where('club_id', $club->id)->first();
 
@@ -285,65 +387,117 @@ class ClubController extends Controller
             return response()->json(['message' => 'Club team not found.'], 404);
         }
 
-        // $playerIds = collect($validated['players'])->pluck('user_id')->map(fn ($id) => (int) $id);
+        $playerIds = collect($validated['players'])->pluck('user_id')->map(fn ($id) => (int) $id);
 
-        // if ($playerIds->duplicates()->isNotEmpty()) {
-        //     return response()->json(['message' => 'Each player can only be added once to the match squad.'], 422);
-        // }
+        if ($playerIds->duplicates()->isNotEmpty()) {
+            return response()->json(['message' => 'Each player can only be added once to the match squad.'], 422);
+        }
 
-        // $addedById = $request->user()->id;
+        $captainCount = collect($validated['players'])->filter(fn ($player) => (bool) ($player['is_captain'] ?? false))->count();
+        $keeperCount = collect($validated['players'])->filter(fn ($player) => (bool) ($player['is_wicket_keeper'] ?? false))->count();
 
-        // $players = collect($validated['players'])->map(function (array $player) use ($team, $fixture, $addedById) {
-        //     $teamMember = TeamMember::query()
-        //         ->where('team_id', $team->id)
-        //         ->where('user_id', (int) $player['user_id'])
-        //         ->where('is_active', true)
-        //         ->first();
+        if ($captainCount > 1) {
+            return response()->json(['message' => 'Only one captain can be selected.'], 422);
+        }
 
-        //     if (!$teamMember) {
-        //         throw ValidationException::withMessages([
-        //             'players' => ["Player {$player['user_id']} is not an active member of the selected club squad."],
-        //         ]);
-        //     }
+        if ($keeperCount > 1) {
+            return response()->json(['message' => 'Only one wicket keeper can be selected.'], 422);
+        }
 
-        //     return [
-        //         'fixture_id' => $fixture->id,
-        //         'team_id' => $team->id,
-        //         'user_id' => $teamMember->user_id,
-        //         'position' => $player['position'] ?? 'playing_xi',
-        //         'jersey_number' => $player['jersey_number'] ?? $teamMember->jersey_number,
-        //         'is_captain' => (bool) ($player['is_captain'] ?? false),
-        //         'is_wicket_keeper' => (bool) ($player['is_wicket_keeper'] ?? false),
-        //         'added_by' => $addedById,
-        //     ];
-        // })->all();
+        $availabilityByUser = Availability::query()
+            ->where('fixture_id', $fixture->id)
+            ->where('team_id', $team->id)
+            ->whereIn('user_id', $playerIds)
+            ->get()
+            ->keyBy('user_id');
 
-        // DB::transaction(function () use ($fixture, $team, $players) {
-        //     Squad::query()
-        //         ->where('fixture_id', $fixture->id)
-        //         ->where('team_id', $team->id)
-        //         ->delete();
+        $addedById = $request->user()->id;
 
-        //     Squad::insert(array_map(function (array $player) {
-        //         $now = now();
+        $players = collect($validated['players'])->map(function (array $player) use (
+            $team,
+            $fixture,
+            $addedById,
+            $availabilityByUser,
+            $allowUnavailable,
+            $allowMaybe
+        ) {
+            $userId = (int) $player['user_id'];
 
-        //         return array_merge($player, [
-        //             'created_at' => $now,
-        //             'updated_at' => $now,
-        //         ]);
-        //     }, $players));
-        // });
-        $fixture->update([
-            'club_team_id' => $team->id,
-            $fixture->club_plays_home ? 'home_team_id' : 'away_team_id' => $team->id,
-        ]);
+            $teamMember = TeamMember::query()
+                ->where('team_id', $team->id)
+                ->where('user_id', $userId)
+                ->where('is_active', true)
+                ->first();
 
-        $fixture->load(['homeTeam', 'awayTeam', 'venue', 'scorer', 'squads.player']);
+            if (!$teamMember) {
+                throw ValidationException::withMessages([
+                    'players' => ["Player {$userId} is not an active member of the selected club squad."],
+                ]);
+            }
+
+            $availability = $availabilityByUser->get($userId);
+
+            if ($availability?->status === 'unavailable' && !$allowUnavailable) {
+                throw ValidationException::withMessages([
+                    'players' => ["Player {$userId} is marked unavailable for this match."],
+                ]);
+            }
+
+            if ($availability?->status === 'maybe' && !$allowMaybe) {
+                throw ValidationException::withMessages([
+                    'players' => ["Player {$userId} is marked as maybe for this match."],
+                ]);
+            }
+
+            return [
+                'fixture_id' => $fixture->id,
+                'team_id' => $team->id,
+                'user_id' => $teamMember->user_id,
+                'position' => $player['position'] ?? 'playing_xi',
+                'jersey_number' => $player['jersey_number'] ?? $teamMember->jersey_number,
+                'is_captain' => (bool) ($player['is_captain'] ?? false),
+                'is_wicket_keeper' => (bool) ($player['is_wicket_keeper'] ?? false),
+                'added_by' => $addedById,
+            ];
+        })->all();
+
+        DB::transaction(function () use ($fixture, $team, $players) {
+            $fixtureUpdates = $fixture->clubPlaysHome()
+                ? ['home_team_id' => $team->id]
+                : ['away_team_id' => $team->id];
+
+            $fixture->update($fixtureUpdates);
+
+            Squad::query()
+                ->where('fixture_id', $fixture->id)
+                ->where('team_id', $team->id)
+                ->delete();
+
+            Squad::insert(array_map(function (array $player) {
+                $now = now();
+
+                return array_merge($player, [
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }, $players));
+        });
+
+        $fixture->refresh()->load(['homeTeam', 'awayTeam', 'venue', 'scorer', 'squads.player']);
+
+        $selectedWithAvailability = collect($players)->map(function (array $player) use ($availabilityByUser) {
+            $availability = $availabilityByUser->get($player['user_id']);
+
+            return array_merge($player, [
+                'availability_status' => $availability?->status ?? 'pending',
+            ]);
+        })->values();
 
         return response()->json([
             'message' => 'Club squad saved successfully.',
             'data' => [
                 'fixture' => $this->formatFixture($fixture),
+                'selected_players' => $selectedWithAvailability,
             ],
         ]);
     }

@@ -433,7 +433,7 @@ class ProfileController extends Controller
             'invited_user_id' => $invitee?->id,
             'role' => $validated['role'] ?? 'player',
             'status' => 'pending',
-            'expires_at' => now()->addDays($validated['expires_in_days'] ?? 7),
+            'expires_at' => now()->addDays((int) ($validated['expires_in_days'] ?? 7)),
             'message' => $validated['message'] ?? null,
         ]);
 

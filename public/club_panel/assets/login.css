@@ -1,0 +1,309 @@
+/* Club Login Page */
+:root {
+    --club-navy: #0f2744;
+    --club-blue: #1e3a5f;
+    --club-green: #2d6a4f;
+    --club-green-light: #40916c;
+    --club-gold: #c9a227;
+}
+
+* { box-sizing: border-box; }
+
+body.club-login-body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--club-navy);
+}
+
+.club-login-wrapper {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+
+@media (min-width: 992px) {
+    .club-login-wrapper {
+        flex-direction: row;
+    }
+}
+
+/* Brand panel */
+.club-login-brand {
+    flex: 1;
+    background: linear-gradient(145deg, var(--club-navy) 0%, var(--club-blue) 50%, #16324f 100%);
+    color: #fff;
+    padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+@media (min-width: 992px) {
+    .club-login-brand {
+        padding: 3rem;
+    }
+}
+
+.club-login-brand::before {
+    content: '';
+    position: absolute;
+    width: min(400px, 80vw);
+    height: min(400px, 80vw);
+    border: 2px solid rgba(255,255,255,.06);
+    border-radius: 50%;
+    top: -100px;
+    right: -100px;
+}
+
+.club-login-brand::after {
+    content: '';
+    position: absolute;
+    width: min(250px, 50vw);
+    height: min(250px, 50vw);
+    border: 2px solid rgba(201,162,39,.15);
+    border-radius: 50%;
+    bottom: -50px;
+    left: -50px;
+}
+
+.club-login-brand-content {
+    position: relative;
+    z-index: 1;
+    max-width: 440px;
+    margin: 0 auto;
+}
+
+@media (min-width: 992px) {
+    .club-login-brand-content {
+        margin: 0;
+    }
+}
+
+.club-login-logo {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--club-green), var(--club-green-light));
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 8px 24px rgba(45,106,79,.4);
+}
+
+.club-login-brand h1 {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    margin-bottom: 0.75rem;
+    color: #fff;
+}
+
+.club-login-brand > .club-login-brand-content > p {
+    color: rgba(255,255,255,.75);
+    line-height: 1.65;
+    margin-bottom: 1.75rem;
+    font-size: 0.95rem;
+}
+
+.club-feature-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+
+@media (min-width: 576px) {
+    .club-feature-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (min-width: 992px) {
+    .club-feature-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.club-feature-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.75rem;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+    color: rgba(255,255,255,.9);
+    font-size: 0.875rem;
+}
+
+.club-feature-item i {
+    width: 36px;
+    height: 36px;
+    background: rgba(255,255,255,.1);
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--club-gold);
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+/* Mobile compact brand strip */
+.club-login-mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(135deg, var(--club-navy), var(--club-blue));
+    color: #fff;
+}
+
+@media (min-width: 992px) {
+    .club-login-mobile-brand {
+        display: none;
+    }
+}
+
+.club-login-mobile-brand .club-login-logo {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    margin-bottom: 0;
+}
+
+.club-login-mobile-brand h1 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+    color: #fff;
+}
+
+.club-login-mobile-brand p {
+    margin: 0;
+    font-size: 0.75rem;
+    opacity: 0.75;
+}
+
+/* Form side */
+.club-login-form-side {
+    flex: 0 0 auto;
+    width: 100%;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+@media (min-width: 992px) {
+    .club-login-form-side {
+        width: 460px;
+        max-width: 42%;
+        padding: 2.5rem;
+    }
+}
+
+.club-login-card {
+    width: 100%;
+    max-width: 400px;
+}
+
+.club-login-card h2 {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    color: var(--club-navy);
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.club-login-card .subtitle {
+    color: #64748b;
+    margin-bottom: 1.75rem;
+    font-size: 0.9rem;
+}
+
+.club-login-card .form-label {
+    font-weight: 600;
+    color: #334155;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+}
+
+.club-login-card .input-group-text {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #94a3b8;
+}
+
+.club-login-card .form-control {
+    border-color: #e2e8f0;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.95rem;
+    border-radius: 0 8px 8px 0;
+}
+
+.club-login-card .input-group .input-group-text:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+.club-login-card .form-control:focus {
+    border-color: var(--club-green);
+    box-shadow: 0 0 0 3px rgba(45,106,79,.12);
+}
+
+.club-login-card .btn-login {
+    background: linear-gradient(135deg, var(--club-green) 0%, #1b4332 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.8rem;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.club-login-card .btn-login:hover {
+    background: linear-gradient(135deg, var(--club-green-light) 0%, var(--club-green) 100%);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(45,106,79,.35);
+}
+
+.club-login-card .form-check-label {
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.club-login-card .alert-danger {
+    font-size: 0.85rem;
+    border: none;
+    background: #fef2f2;
+    color: #b91c1c;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+}
+
+.club-login-footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.club-login-footer a {
+    color: var(--club-blue);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.club-login-footer a:hover {
+    text-decoration: underline;
+}

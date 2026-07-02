@@ -1,214 +1,181 @@
 @extends('admin.layouts.master')
 @section('players', 'active')
-@section('title'){{ $title ?? '' }} @endsection
-
-@push('style')
-    <style>
-        .password-wrapper {
-            position: relative;
-        }
-
-        .password-wrapper input {
-            padding-right: 40px;
-            /* space for eye icon */
-        }
-
-        .toggle-password {
-            position: absolute;
-            top: 50%;
-            right: 12px;
-            transform: translateY(-50%);
-            cursor: pointer;
-            color: #6c757d;
-            font-size: 16px;
-        }
-
-        .toggle-password:hover {
-            color: #0d6efd;
-        }
-    </style>
-@endpush
+@section('title', $title ?? 'Manage Players')
 
 @section('content')
-    <!-- Main Content Area -->
-    <main class="container-fluid p-3 p-lg-4">
-        <div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-center">
-            <div class="mb-0">
-                <h2 class="page-content-title fw-medium fs-5">Players Management</h2>
-                <p class="page-subtitle">Manage Players</p>
-            </div>
-
-            {{-- <button class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#addUserModal">
-            <i class="fas fa-plus me-2"></i>Add Admin User
-        </button> --}}
+<main class="container-fluid p-3 p-lg-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h2 class="page-content-title fw-medium fs-5 mb-1">Player Management</h2>
+            <p class="text-muted mb-0 small">View registered players and their club memberships.</p>
         </div>
+    </div>
 
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show">{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show">{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    @endif
 
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card"><div class="card-body py-3">
+                <p class="text-muted small mb-1">Total Players</p>
+                <h4 class="mb-0 fw-bold">{{ $summary['total'] }}</h4>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card"><div class="card-body py-3">
+                <p class="text-muted small mb-1">Active</p>
+                <h4 class="mb-0 fw-bold text-success">{{ $summary['active'] }}</h4>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card"><div class="card-body py-3">
+                <p class="text-muted small mb-1">Onboarded</p>
+                <h4 class="mb-0 fw-bold">{{ $summary['onboarded'] }}</h4>
+            </div></div>
+        </div>
+    </div>
 
-
-        <!-- Main Card -->
-        <div class="main-card mb-4">
-            <div
-                class="card-header d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
-                <h5 class="card-title mb-0">Player List</h5>
-            </div>
-            <div class="p-3">
-                <table id="adminUsersTable" class="table data-table table-hover admin-user-table" style="width:100%">
-                    <thead>
-                        <tr>
-                            <th>Player</th>
-                            <th>Role</th>
-                            <th>Batting</th>
-                            <th>Bowling</th>
-                            <th>Matches</th>
-                            <th class="text-center">Status</th>
-                            <th class="text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($players as $player)
-                            <tr>
-                                {{-- Player Name + Avatar --}}
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        @if ($player->avatar)
-                                            <img src="{{ asset('storage/' . $player->avatar) }}" alt=""
-                                                class="rounded-circle" style="width:36px;height:36px;object-fit:cover;">
-                                        @else
-                                            <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center text-primary fw-bold"
-                                                style="width:36px;height:36px;font-size:.75rem;font-weight:600;">
-                                                {{ strtoupper(substr($player->name, 0, 1)) }}
-                                            </div>
-                                        @endif
-                                        <div class="min-w-0">
-                                            <p class="mb-0 fw-semibold text-truncate" style="font-size:.875rem;">
-                                                {{ $player->name }}</p>
-                                            <p class="mb-0 text-truncate text-muted" style="font-size:.75rem;">
-                                                {{ $player->email }}</p>
-                                        </div>
-                                    </div>
-                                </td>
-
-                                {{-- Role Badge --}}
-                                <td>
-                                    @if ($player->playerProfile)
-                                        @php
-                                            $roleColors = [
-                                                'batsman' => 'bg-info text-white',
-                                                'bowler' => 'bg-warning text-dark',
-                                                'all_rounder' => 'bg-success text-white',
-                                                'wicket_keeper' => 'bg-purple text-white',
-                                            ];
-                                        @endphp
-                                        <span
-                                            class="badge {{ $roleColors[$player->playerProfile->primary_role] ?? 'bg-secondary text-white' }}">
-                                            {{ $player->playerProfile->role_label }}
-                                        </span>
-                                    @else
-                                        <span class="badge bg-secondary text-white">Player</span>
-                                    @endif
-                                </td>
-
-                                {{-- Batting Style --}}
-                                <td>
-                                    @if ($player->playerProfile?->batting_style)
-                                        <span class="badge bg-light text-dark">
-                                            {{ $player->playerProfile->batting_style === 'right_hand' ? 'RHB' : 'LHB' }}
-                                        </span>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-
-
-                                <td>
-                                    @if ($player->playerProfile?->bowling_style)
-                                        @php
-                                            $short = str_replace(
-                                                'right_arm_',
-                                                'RA ',
-                                                str_replace('left_arm_', 'LA ', $player->playerProfile->bowling_style),
-                                            );
-                                        @endphp
-                                        <span class="text-truncate d-inline-block" style="font-size:.8rem;max-width:120px;"
-                                            title="{{ $player->playerProfile->bowling_style }}">
-                                            {{ $short }}
-                                        </span>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-
-                                {{-- Matches --}}
-                                <td class="text-center">
-                                    {{ $player->playerProfile?->total_matches ?? 0 }}
-                                </td>
-
-                                {{-- Status Badge --}}
-                                <td class="text-center">
-                                    @if ($player->is_active)
-                                        <span class="bg-success bg-opacity-10 text-success">Active</span>
-                                    @else
-                                        <span class="bg-secondary bg-opacity-10 text-secondary">Inactive</span>
-                                    @endif
-                                </td>
-
-                                {{-- Actions --}}
-                                <td class="text-center">
-                                    <div class="d-flex justify-content-center gap-1">
-                                        <a href="{{ route('admin.players.edit', $player) }}"
-                                            class="btn btn-sm btn-outline-primary btn-sm" title="Edit Player">
-                                            <i class="fas fa-pen"></i>
-                                        </a>
-                                        <button type="button" class="btn btn-sm btn-outline-warning btn-sm"
-                                            title="Toggle Active/Inactive"
-                                            onclick="toggleActive({{ $player->id }}, '{{ addslashes($player->name) }}')"
-                                            data-bs-toggle="modal" data-bs-target="#activeModal">
-                                            <i class="fas fa-toggle-on"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-sm"
-                                            title="Delete Player"
-                                            onclick="openDeleteModal({{ $player->id }}, '{{ addslashes($player->name) }}')"
-                                            data-bs-toggle="modal" data-bs-target="#deleteModal">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small">Search</label>
+                    <input type="text" name="search" class="form-control" value="{{ request('search') }}" placeholder="Name, email, phone...">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Status</label>
+                    <select name="is_active" class="form-select">
+                        <option value="">All</option>
+                        <option value="1" @selected(request('is_active') === '1')>Active</option>
+                        <option value="0" @selected(request('is_active') === '0')>Inactive</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Role</label>
+                    <select name="primary_role" class="form-select">
+                        <option value="">All</option>
+                        @foreach(['batsman' => 'Batsman', 'bowler' => 'Bowler', 'all_rounder' => 'All Rounder', 'wicket_keeper' => 'Wicket Keeper'] as $value => $label)
+                            <option value="{{ $value }}" @selected(request('primary_role') === $value)>{{ $label }}</option>
                         @endforeach
-                    </tbody>
-                </table>
-            </div>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Onboarded</label>
+                    <select name="is_onboarded" class="form-select">
+                        <option value="">All</option>
+                        <option value="1" @selected(request('is_onboarded') === '1')>Yes</option>
+                        <option value="0" @selected(request('is_onboarded') === '0')>No</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    <a href="{{ route('admin.players.index') }}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
         </div>
-    </main>
+    </div>
 
-
-
+    <div class="card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Player List</h5>
+            <span class="text-muted small">{{ $players->total() }} players</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Player</th>
+                        <th>Phone</th>
+                        <th>Role</th>
+                        <th>Clubs</th>
+                        <th class="text-center">Matches</th>
+                        <th class="text-center">Onboarded</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Joined</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($players as $player)
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    @if($player->image)
+                                        <img src="{{ asset($player->image) }}" alt="" class="rounded-circle" style="width:40px;height:40px;object-fit:cover;">
+                                    @else
+                                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center fw-bold" style="width:40px;height:40px;">
+                                            {{ strtoupper(substr($player->name, 0, 1)) }}
+                                        </div>
+                                    @endif
+                                    <div>
+                                        <div class="fw-semibold">
+                                            <a href="{{ route('admin.players.show', $player) }}" class="text-decoration-none text-dark">{{ $player->name }}</a>
+                                        </div>
+                                        <div class="text-muted small">{{ $player->email }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="small">{{ $player->phone ?? '—' }}</td>
+                            <td>
+                                @if($player->playerProfile)
+                                    <span class="badge bg-light text-dark">{{ $player->playerProfile->role_label }}</span>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($player->clubs_count > 0)
+                                    <a href="{{ route('admin.players.show', $player) }}" class="small text-decoration-none">
+                                        {{ $player->clubs->pluck('name')->take(2)->join(', ') }}
+                                    </a>
+                                    @if($player->clubs_count > 2)
+                                        <span class="text-muted small">+{{ $player->clubs_count - 2 }} more</span>
+                                    @endif
+                                @else
+                                    <span class="text-muted">No club</span>
+                                @endif
+                            </td>
+                            <td class="text-center">{{ $player->playerProfile?->total_matches ?? 0 }}</td>
+                            <td class="text-center">
+                                <span class="badge {{ $player->is_onboarded ? 'bg-success' : 'bg-secondary' }}">
+                                    {{ $player->is_onboarded ? 'Yes' : 'No' }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge {{ $player->is_active ? 'bg-success' : 'bg-secondary' }}">
+                                    {{ $player->is_active ? 'Active' : 'Inactive' }}
+                                </span>
+                            </td>
+                            <td class="text-center small text-muted">{{ $player->created_at->format('d M Y') }}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <a href="{{ route('admin.players.show', $player) }}" class="btn btn-sm btn-outline-primary" title="View player">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <form method="POST" action="{{ route('admin.players.toggle-active', $player) }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm {{ $player->is_active ? 'btn-outline-warning' : 'btn-outline-success' }}" title="Toggle active status">
+                                            <i class="fas {{ $player->is_active ? 'fa-user-slash' : 'fa-user-check' }}"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-5">No players found.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        @if($players->hasPages())
+            <div class="card-footer bg-white">{{ $players->links() }}</div>
+        @endif
+    </div>
+</main>
 @endsection
-
-@push('script')
-    <script>
-        $(document).ready(function() {
-            // Initialize DataTable
-            $('#adminUsersTable').DataTable({
-                responsive: true,
-                language: {
-                    search: "Search:",
-                    lengthMenu: "Show _MENU_ entries",
-                    paginate: {
-                        previous: "<i class='fas fa-chevron-left'></i>",
-                        next: "<i class='fas fa-chevron-right'></i>"
-                    }
-                },
-                columnDefs: [{
-                    orderable: false,
-                    targets: 5
-                }],
-                pageLength: 10,
-                order: [
-                    [0, 'asc']
-                ]
-            });
-        });
-    </script>
-@endpush

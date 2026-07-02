@@ -14,6 +14,7 @@ class BallEvent extends Model
         'innings_id', 'match_id', 'fixture_id',
         'over_number', 'ball_number', 'ball_sequence', 'legal_ball_sequence',
         'striker_id', 'non_striker_id', 'bowler_id',
+        'external_striker_index', 'external_non_striker_index', 'external_bowler_index',
         'batting_team_id', 'bowling_team_id',
         'event_type', 'runs_scored', 'total_runs',
         'is_boundary_four', 'is_boundary_six',

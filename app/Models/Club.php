@@ -68,12 +68,28 @@ class Club extends Model
 
     public function getLogoUrlAttribute(): ?string
     {
-        return $this->logo ? asset('storage/clubs/' . $this->logo) : null;
+        if (!$this->logo) {
+            return null;
+        }
+
+        if (str_contains($this->logo, '/')) {
+            return asset($this->logo);
+        }
+
+        return asset('storage/clubs/' . $this->logo);
     }
 
     public function getCoverUrlAttribute(): ?string
     {
-        return $this->cover_image ? asset('storage/clubs/covers/' . $this->cover_image) : null;
+        if (!$this->cover_image) {
+            return null;
+        }
+
+        if (str_contains($this->cover_image, '/')) {
+            return asset($this->cover_image);
+        }
+
+        return asset('storage/clubs/covers/' . $this->cover_image);
     }
 
     public function scopePublic($query)
