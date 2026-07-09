@@ -150,7 +150,7 @@ class ProfileController extends Controller
 
     public function club(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user;
 
         if ($user->user_type !== 'club') {
             return response()->json([
