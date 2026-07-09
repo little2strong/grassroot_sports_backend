@@ -14,6 +14,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
@@ -69,7 +70,7 @@ class ProfileController extends Controller
 
     public function player(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
         // dd($user->clubMemberships);
 
         if ($user->user_type !== 'player') {
@@ -88,7 +89,7 @@ class ProfileController extends Controller
 
     public function updatePlayer(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
 
         if ($user->user_type !== 'player') {
             return response()->json([
@@ -179,7 +180,7 @@ class ProfileController extends Controller
 
     public function updateClub(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
 
         if ($user->user_type !== 'club') {
             return response()->json([
@@ -236,7 +237,7 @@ class ProfileController extends Controller
 
     public function createSquad(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
 
         if ($user->user_type !== 'club') {
             return response()->json(['message' => 'Only club accounts can create squads.'], 403);
@@ -281,7 +282,7 @@ class ProfileController extends Controller
 
     public function addPlayerToSquad(Request $request, int $teamId): JsonResponse
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
 
         if ($user->user_type !== 'club') {
             return response()->json(['message' => 'Only club accounts can add players to squads.'], 403);
@@ -301,42 +302,93 @@ class ProfileController extends Controller
 
         $validated = $request->validate([
             'player_id' => [
-                'required_without:email',
-                'nullable',
+                'required',
                 'integer',
                 Rule::exists('users', 'id')->where(fn ($q) => $q->where('user_type', 'player')->where('is_active', true)),
             ],
-            'email' => 'required_without:player_id|nullable|email|max:255',
+            'action' => 'sometimes|in:add,remove',
+            'exclusive' => 'sometimes|boolean',
             'role' => 'sometimes|required|in:player,captain,manager,scorer',
             'jersey_number' => 'sometimes|nullable|integer|min:0',
         ]);
 
-        $invitee = isset($validated['player_id'])
-            ? User::query()->where('user_type', 'player')->find($validated['player_id'])
-            : User::query()->where('email', $validated['email'])->where('user_type', 'player')->where('is_active', true)->first();
+        $invitee = User::query()
+            ->where('user_type', 'player')
+            ->where('is_active', true)
+            ->find((int) $validated['player_id']);
 
         if (!$invitee) {
             return response()->json(['message' => 'Player not found.'], 422);
         }
 
-        $existing = $team->members()->where('user_id', $invitee->id)->first();
+        $action = $validated['action'] ?? 'add';
 
-        if ($existing && $existing->is_active) {
-            return response()->json(['message' => 'Player is already an active member of this squad.'], 422);
+        if ($action === 'remove') {
+            $existing = TeamMember::query()
+                ->where('team_id', $team->id)
+                ->where('user_id', $invitee->id)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$existing) {
+                return response()->json(['message' => 'Player is not an active member of this squad.'], 422);
+            }
+
+            $existing->update(['is_active' => false]);
+
+            return response()->json([
+                'message' => 'Player removed from squad.',
+                'data' => [
+                    'member' => [
+                        'id' => $existing->id,
+                        'team_id' => $existing->team_id,
+                        'user_id' => $existing->user_id,
+                        'role' => $existing->role,
+                        'jersey_number' => $existing->jersey_number,
+                        'is_active' => (bool) $existing->is_active,
+                        'joined_at' => optional($existing->joined_at)->toIso8601String(),
+                    ],
+                ],
+            ]);
         }
 
-        $member = \App\Models\TeamMember::updateOrCreate(
-            ['team_id' => $team->id, 'user_id' => $invitee->id],
-            [
-                'role' => $validated['role'] ?? 'player',
-                'jersey_number' => $validated['jersey_number'] ?? null,
-                'is_active' => true,
-                'joined_at' => now(),
-            ]
-        );
+        $exclusive = $request->has('exclusive') ? (bool) $validated['exclusive'] : true;
+        $movedFromTeamIds = collect();
+
+        $member = DB::transaction(function () use ($club, $team, $invitee, $validated, $exclusive, &$movedFromTeamIds) {
+            if ($exclusive) {
+                $clubTeamIds = Team::query()->where('club_id', $club->id)->pluck('id');
+
+                $movedFromTeamIds = TeamMember::query()
+                    ->where('user_id', $invitee->id)
+                    ->whereIn('team_id', $clubTeamIds)
+                    ->where('team_id', '!=', $team->id)
+                    ->where('is_active', true)
+                    ->pluck('team_id');
+
+                TeamMember::query()
+                    ->where('user_id', $invitee->id)
+                    ->whereIn('team_id', $clubTeamIds)
+                    ->where('team_id', '!=', $team->id)
+                    ->where('is_active', true)
+                    ->update(['is_active' => false]);
+            }
+
+            return TeamMember::updateOrCreate(
+                ['team_id' => $team->id, 'user_id' => $invitee->id],
+                [
+                    'role' => $validated['role'] ?? 'player',
+                    'jersey_number' => $validated['jersey_number'] ?? null,
+                    'is_active' => true,
+                    'joined_at' => now(),
+                ]
+            );
+        });
 
         return response()->json([
-            'message' => 'Player added to squad.',
+            'message' => $movedFromTeamIds->isNotEmpty()
+                ? 'Player moved to squad.'
+                : 'Player added to squad.',
             'data' => [
                 'member' => [
                     'id' => $member->id,
@@ -347,13 +399,15 @@ class ProfileController extends Controller
                     'is_active' => (bool)$member->is_active,
                     'joined_at' => optional($member->joined_at)->toIso8601String(),
                 ],
+                'moved_from_team_ids' => $movedFromTeamIds->values(),
+                'exclusive' => $exclusive,
             ],
         ], 201);
     }
 
     public function invitePlayerToClub(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
 
         if ($user->user_type !== 'club') {
             return response()->json([

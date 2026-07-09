@@ -43,6 +43,10 @@ Route::prefix('club')->name('club.')->group(function () {
         Route::get('/squads/{team}/edit', [SquadController::class, 'edit'])->name('squads.edit');
         Route::put('/squads/{team}', [SquadController::class, 'update'])->name('squads.update');
         Route::delete('/squads/{team}', [SquadController::class, 'destroy'])->name('squads.destroy');
+        Route::get('/squads/{team}/players', [SquadController::class, 'players'])->name('squads.players');
+        Route::post('/squads/{team}/players', [SquadController::class, 'addPlayer'])->name('squads.players.add');
+        Route::delete('/squads/{team}/players/{user}', [SquadController::class, 'removePlayer'])->name('squads.players.remove');
+        Route::post('/squads/{team}/players/{user}/move', [SquadController::class, 'movePlayer'])->name('squads.players.move');
 
         Route::get('/fixtures', [FixtureController::class, 'index'])->name('fixtures.index');
         Route::get('/fixtures/create', [FixtureController::class, 'create'])->name('fixtures.create');
@@ -50,8 +54,11 @@ Route::prefix('club')->name('club.')->group(function () {
         Route::get('/fixtures/{fixture}/edit', [FixtureController::class, 'edit'])->name('fixtures.edit');
         Route::put('/fixtures/{fixture}', [FixtureController::class, 'update'])->name('fixtures.update');
         Route::delete('/fixtures/{fixture}', [FixtureController::class, 'destroy'])->name('fixtures.destroy');
+        Route::get('/fixtures/{fixture}/availability', [FixtureController::class, 'availability'])->name('fixtures.availability');
+        Route::post('/fixtures/{fixture}/scorer', [FixtureController::class, 'assignScorer'])->name('fixtures.assign-scorer');
 
         Route::get('/players', [PlayerController::class, 'index'])->name('players.index');
+        Route::get('/players/{player}', [PlayerController::class, 'show'])->name('players.show');
 
         Route::get('/invitations', [InvitationController::class, 'index'])->name('invitations.index');
         Route::get('/invitations/create', [InvitationController::class, 'create'])->name('invitations.create');
@@ -59,5 +66,7 @@ Route::prefix('club')->name('club.')->group(function () {
         Route::delete('/invitations/{invitation}', [InvitationController::class, 'destroy'])->name('invitations.destroy');
 
         Route::get('/scoring', [ScoringController::class, 'index'])->name('scoring.index');
+        Route::get('/scoring/matches', [ScoringController::class, 'matches'])->name('scoring.matches');
+        Route::get('/scoring/matches/{fixture}', [ScoringController::class, 'show'])->name('scoring.show');
     });
 });

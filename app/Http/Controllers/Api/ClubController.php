@@ -21,7 +21,7 @@ class ClubController extends Controller
 {
     public function squads(Request $request, ?int $clubId = null): JsonResponse
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
 
         if (!$clubId && $user && $user->user_type === 'club') {
             $club = $user->ownedClub()->first();
@@ -191,7 +191,7 @@ class ClubController extends Controller
 
         $fixture = Fixture::create(array_merge($payload, [
             'club_id' => $club->id,
-            'created_by' => $request->user()->id,
+            'created_by' => auth('sanctum')->id(),
             'status' => $status,
             'is_public' => $payload['is_public'] ?? true,
             'published_at' => $status === 'published' ? now() : null,
@@ -411,7 +411,7 @@ class ClubController extends Controller
             ->get()
             ->keyBy('user_id');
 
-        $addedById = $request->user()->id;
+        $addedById = auth('sanctum')->id();
 
         $players = collect($validated['players'])->map(function (array $player) use (
             $team,
@@ -714,7 +714,7 @@ class ClubController extends Controller
 
         $import = FixtureImport::create([
             'club_id' => $club->id,
-            'imported_by' => $request->user()->id,
+            'imported_by' => auth('sanctum')->id(),
             'source_type' => 'csv',
             'file_path' => '',
             'original_filename' => $file->getClientOriginalName(),
@@ -728,7 +728,7 @@ class ClubController extends Controller
         $importPath = $this->storeUpload($request, 'fixture_file', 'fixture_imports');
         $import->update(['file_path' => $importPath]);
 
-        $results = $this->processFixtureImportRows($club, $request->user()->id, $rows);
+        $results = $this->processFixtureImportRows($club, auth('sanctum')->id(), $rows);
 
         $import->update([
             'parsed_fixtures' => $results['parsed_fixtures'] ?? [],
@@ -753,7 +753,7 @@ class ClubController extends Controller
 
     private function resolveClub(Request $request, int $clubId): ?Club
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
 
         if (!$user || $user->user_type !== 'club') {
             return null;

@@ -5,123 +5,208 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
+        :root {
+            --admin-brand: #006a6c;
+            --admin-brand-dark: #00585a;
+        }
+
         body {
-            background-color: #006a6c;
-        }
-        .btn_login{
-            background-color: #006a6c;
-        }
-        .btn_login:hover {
-            background-color: #00585a;
-        }
-
-        .login-container {
-            margin-top: 100px;
+            min-height: 100vh;
+            background:
+                radial-gradient(1200px 600px at 10% 10%, rgba(255, 255, 255, 0.25), transparent 60%),
+                radial-gradient(900px 500px at 90% 20%, rgba(255, 255, 255, 0.18), transparent 55%),
+                linear-gradient(135deg, #0b3b3c 0%, var(--admin-brand) 35%, #0b3b3c 100%);
+            display: flex;
+            align-items: center;
         }
 
-        .card {
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        .auth-shell {
+            width: 100%;
+            padding: 32px 0;
         }
 
-        /* .btn-login {
-            background-color: #0d6efd;
+        .auth-card {
+            border: 0;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 20px 55px rgba(0, 0, 0, 0.35);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+        }
+
+        .auth-card-header {
+            padding: 26px 28px 18px;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+            background: rgba(255, 255, 255, 0.75);
+        }
+
+        .brand-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--admin-brand) 0%, #12a4a7 100%);
             color: #fff;
+            box-shadow: 0 10px 25px rgba(0, 106, 108, 0.35);
+        }
+
+        .auth-title {
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin: 14px 0 4px;
+            color: #0f172a;
+        }
+
+        .auth-subtitle {
+            margin: 0;
+            color: rgba(15, 23, 42, 0.7);
+            font-size: 0.95rem;
+        }
+
+        .auth-card-body {
+            padding: 22px 28px 26px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: rgba(15, 23, 42, 0.8);
+            margin-bottom: 8px;
+        }
+
+        .form-control:focus {
+            border-color: rgba(0, 106, 108, 0.55);
+            box-shadow: 0 0 0 0.25rem rgba(0, 106, 108, 0.18);
+        }
+
+        .btn-login {
+            background: linear-gradient(90deg, var(--admin-brand) 0%, #12a4a7 100%);
+            border: 0;
+            font-weight: 600;
+            padding: 11px 14px;
+            border-radius: 12px;
         }
 
         .btn-login:hover {
-            background-color: #0b5ed7;
-        } */
+            background: linear-gradient(90deg, var(--admin-brand-dark) 0%, #0f8f92 100%);
+            transform: translateY(-1px);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .input-group-text {
+            background: #fff;
+        }
+
+        .auth-footer {
+            color: rgba(255, 255, 255, 0.9);
+            text-align: center;
+            margin-top: 18px;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 
 <body>
-    <div class="container login-container">
-        <div class="row justify-content-center">
-    <div class="col-md-5 col-lg-4">
-        <div class="card p-4 card_bottom">
-            <div class="card-body">
-                <!-- Title -->
-                <h3 class="card-title text-center mb-1">Admin Login</h3>
+    <div class="auth-shell">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-7 col-lg-5 col-xl-4">
+                    <div class="auth-card">
+                        <div class="auth-card-header text-center">
+                            <div class="brand-badge mx-auto">
+                                <i class="fas fa-shield-halved"></i>
+                            </div>
+                            <h3 class="auth-title">Admin Login</h3>
+                            <p class="auth-subtitle">Secure access to the control panel</p>
+                        </div>
 
-                <!-- Subtitle -->
-                <p class="text-center text-muted mb-4">
-                    Access Your Business Dashboard
-                </p>
-                @if ($errors->any())
-                    <div class="alert alert-danger">
-                        <ul class="mb-0">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
+                        <div class="auth-card-body">
+                            @if ($errors->any())
+                                <div class="alert alert-danger mb-4">
+                                    <div class="d-flex gap-2 align-items-start">
+                                        <i class="fas fa-circle-exclamation mt-1"></i>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold mb-1">Login failed</div>
+                                            <ul class="mb-0 ps-3">
+                                                @foreach ($errors->all() as $error)
+                                                    <li>{{ $error }}</li>
+                                                @endforeach
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
 
-                <form method="POST" action="{{ route('admin.login.post') }}">
-                    @csrf
+                            <form method="POST" action="{{ route('admin.login.post') }}">
+                                @csrf
 
-                    <!-- Email -->
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email address</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-white">
-                                <i class="far fa-envelope"></i>
-                            </span>
-                            <input
-                                type="email"
-                                class="form-control"
-                                id="email"
-                                name="email"
-                                placeholder="Enter email"
-                                required
-                            >
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email address</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="far fa-envelope"></i>
+                                        </span>
+                                        <input
+                                            type="email"
+                                            class="form-control"
+                                            id="email"
+                                            name="email"
+                                            value="{{ old('email') }}"
+                                            placeholder="admin@example.com"
+                                            required
+                                            autofocus
+                                        >
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">Password</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-lock"></i>
+                                        </span>
+                                        <input
+                                            type="password"
+                                            class="form-control"
+                                            id="password"
+                                            name="password"
+                                            placeholder="Enter password"
+                                            required
+                                        >
+                                        <button type="button" class="input-group-text" style="cursor:pointer;" onclick="togglePassword()" aria-label="Toggle password visibility">
+                                            <i id="password-icon" class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center justify-content-between mb-4">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="remember" name="remember" @checked(old('remember'))>
+                                        <label class="form-check-label" for="remember">Remember me</label>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-login w-100 text-white">
+                                    <i class="fas fa-right-to-bracket me-1"></i> Login
+                                </button>
+                            </form>
                         </div>
                     </div>
 
-                    <!-- Password -->
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-white">
-                                <i class="fas fa-lock"></i>
-                            </span>
-                            <input
-                                type="password"
-                                class="form-control"
-                                id="password"
-                                name="password"
-                                placeholder="Enter password"
-                                required
-                            >
-                            <span class="input-group-text bg-white" style="cursor:pointer;" onclick="togglePassword()">
-                                <i id="password-icon" class="fas fa-eye"></i>
-                            </span>
-                        </div>
+                    <div class="auth-footer">
+                        {{ config('app.name') }} · Admin Panel
                     </div>
-
-                    <!-- Remember Me -->
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                        <label class="form-check-label" for="remember">Remember me</label>
-                    </div>
-
-                    <button type="submit" class="btn btn_login w-100 text-white">
-                        Login
-                    </button>
-                </form>
-
+                </div>
             </div>
         </div>
-    </div>
-</div>
-
     </div>
 
     <!-- Bootstrap JS -->

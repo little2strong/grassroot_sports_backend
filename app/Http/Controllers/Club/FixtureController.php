@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Club;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Club\Concerns\ResolvesClub;
+use App\Models\Availability;
 use App\Models\Fixture;
+use App\Models\ClubMember;
+use App\Models\TeamMember;
 use App\Models\Team;
+use App\Models\User;
 use App\Models\Venue;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,17 +25,30 @@ class FixtureController extends Controller
         $club = $this->resolveClub($request);
 
         $fixtures = Fixture::forClub($club->id)
-            ->with(['homeTeam', 'awayTeam', 'venue'])
+            ->with(['homeTeam', 'awayTeam', 'venue', 'scorer'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->orderByDesc('scheduled_date')
             ->orderByDesc('scheduled_time')
             ->paginate(15)
             ->withQueryString();
 
+        $scorers = ClubMember::query()
+            ->where('club_id', $club->id)
+            ->active()
+            // ->whereIn('role', ['owner', 'admin', 'manager', 'scorer', 'captain'])
+            ->with('user')
+            ->get()
+            ->pluck('user')
+            ->filter(fn ($u) => $u && $u->user_type === 'player' && $u->is_active)
+            ->unique('id')
+            ->sortBy(fn ($u) => $u->full_name ?: $u->email)
+            ->values();
+
         return view('club.fixtures.index', [
             'title' => 'Fixtures',
             'club' => $club,
             'fixtures' => $fixtures,
+            'scorers' => $scorers,
             'statusFilter' => $request->query('status'),
         ]);
     }
@@ -144,6 +161,119 @@ class FixtureController extends Controller
         return redirect()
             ->route('club.fixtures.index')
             ->with('success', 'Fixture deleted successfully.');
+    }
+
+    public function availability(Request $request, int $fixture): View
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        $teamId = $record->clubTeamId();
+
+        $team = $teamId
+            ? $club->teams()->where('id', $teamId)->first()
+            : null;
+
+        $members = collect();
+        $availabilityByUser = collect();
+
+        if ($team) {
+            $members = TeamMember::query()
+                ->where('team_id', $team->id)
+                ->where('is_active', true)
+                ->with(['user.playerProfile'])
+                ->orderBy('jersey_number')
+                ->get();
+
+            $availabilityByUser = Availability::query()
+                ->where('fixture_id', $record->id)
+                ->where('team_id', $team->id)
+                ->get()
+                ->keyBy('user_id');
+        }
+
+        $statusFilter = $request->query('status');
+
+        $rows = $members->map(function ($member) use ($availabilityByUser) {
+            $availability = $availabilityByUser->get($member->user_id);
+
+            return [
+                'member' => $member,
+                'availability' => $availability,
+                'status' => $availability?->status ?? 'pending',
+                'status_label' => $availability?->status_label ?? 'Pending',
+                'reason' => $availability?->reason,
+                'responded_at' => $availability?->responded_at,
+            ];
+        });
+
+        if ($statusFilter) {
+            $rows = $rows->filter(fn ($row) => $row['status'] === $statusFilter)->values();
+        }
+
+        $summary = [
+            'total' => $members->count(),
+            'available' => $rows->filter(fn ($r) => $r['status'] === 'available')->count(),
+            'maybe' => $rows->filter(fn ($r) => $r['status'] === 'maybe')->count(),
+            'unavailable' => $rows->filter(fn ($r) => $r['status'] === 'unavailable')->count(),
+            'pending' => $rows->filter(fn ($r) => $r['status'] === 'pending')->count(),
+        ];
+
+        return view('club.fixtures.availability', [
+            'title' => 'Fixture Availability',
+            'club' => $club,
+            'fixture' => $record,
+            'team' => $team,
+            'rows' => $rows,
+            'summary' => $summary,
+            'statusFilter' => $statusFilter,
+        ]);
+    }
+
+    public function assignScorer(Request $request, int $fixture): RedirectResponse
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        if ($this->isLocked($record)) {
+            return redirect()
+                ->route('club.fixtures.index')
+                ->with('error', 'Cannot change scorer while match is live or completed.');
+        }
+
+        $validated = $request->validate([
+            'scorer_user_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($q) => $q->where('user_type', 'player')->where('is_active', true)),
+            ],
+        ]);
+
+        $scorerId = $validated['scorer_user_id'] ?? null;
+
+        if ($scorerId) {
+            $allowed = ClubMember::query()
+                ->where('club_id', $club->id)
+                ->active()
+                ->where('user_id', $scorerId)
+                // ->whereIn('role', ['owner', 'admin', 'manager', 'scorer', 'captain'])
+                ->exists();
+
+            if (!$allowed) {
+                return back()->with('error', 'Selected scorer is not allowed for your club.');
+            }
+        }
+
+        $record->update([
+            'scorer_user_id' => $scorerId,
+            'scorer_assigned_at' => $scorerId ? now() : null,
+        ]);
+
+        $name = $scorerId ? (User::find($scorerId)?->full_name ?: 'Scorer') : 'No scorer';
+
+        return redirect()
+            ->route('club.fixtures.index')
+            ->with('success', "Scorer updated: {$name}.");
     }
 
     private function resolveFixture($club, int $fixtureId): Fixture

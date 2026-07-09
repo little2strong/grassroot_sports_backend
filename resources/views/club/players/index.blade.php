@@ -48,7 +48,15 @@
                             @foreach($members as $member)
                             @php $user = $member->user; @endphp
                             <tr>
-                                <td class="fw-medium">{{ $user?->full_name ?? '—' }}</td>
+                                <td class="fw-medium">
+                                    @if($user)
+                                        <a class="text-decoration-none text-dark" href="{{ route('club.players.show', $user) }}">
+                                            {{ $user->full_name ?? '—' }}
+                                        </a>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td class="small text-muted">{{ $user?->email ?? '—' }}</td>
                                 <td><span class="club-badge muted">{{ ucfirst($member->role) }}</span></td>
                                 <td>
@@ -66,7 +74,15 @@
                     @foreach($members as $member)
                     @php $user = $member->user; @endphp
                     <div class="club-fixture-mobile-item">
-                        <div class="match-teams">{{ $user?->full_name ?? 'Unknown' }}</div>
+                        <div class="match-teams">
+                            @if($user)
+                                <a class="text-decoration-none text-dark" href="{{ route('club.players.show', $user) }}">
+                                    {{ $user?->full_name ?? 'Unknown' }}
+                                </a>
+                            @else
+                                Unknown
+                            @endif
+                        </div>
                         <div class="match-meta">
                             <span>{{ $user?->email }}</span>
                             <span class="club-badge muted">{{ ucfirst($member->role) }}</span>

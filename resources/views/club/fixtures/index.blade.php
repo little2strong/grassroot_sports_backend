@@ -50,6 +50,7 @@
                                 <th>Type</th>
                                 <th>Status</th>
                                 <th>Public</th>
+                                <th>Scorer</th>
                                 <th class="text-end">Actions</th>
                             </tr>
                         </thead>
@@ -79,9 +80,27 @@
                                         {{ $fixture->is_public ? 'Yes' : 'No' }}
                                     </span>
                                 </td>
+                                <td class="small">
+                                    @if($fixture->scorer)
+                                        <div class="fw-medium">{{ $fixture->scorer->full_name ?: $fixture->scorer->email }}</div>
+                                        <div class="text-muted small">{{ $fixture->scorer->email }}</div>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
                                 <td class="text-end">
                                     <div class="club-table-actions">
+                                        <a href="{{ route('club.fixtures.availability', $fixture) }}" class="btn btn-sm btn-light border" title="Availability">
+                                            <i class="fas fa-user-check"></i>
+                                        </a>
                                         @if(!$locked)
+                                            <button type="button"
+                                                class="btn btn-sm btn-light border assign-scorer-btn"
+                                                data-fixture-id="{{ $fixture->id }}"
+                                                data-current-scorer="{{ $fixture->scorer_user_id ?? '' }}"
+                                                title="Assign scorer">
+                                                <i class="fas fa-user-pen"></i>
+                                            </button>
                                             <a href="{{ route('club.fixtures.edit', $fixture) }}" class="btn btn-sm btn-light border" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
@@ -116,8 +135,21 @@
                             <span class="club-badge muted">{{ $fixture->match_type_label ?? $fixture->match_type }}</span>
                             <span class="club-badge {{ in_array($fixture->status, ['live','paused']) ? 'danger' : 'muted' }}">{{ ucfirst($fixture->status) }}</span>
                         </div>
+                        <div class="small text-muted mb-2">
+                            <strong>Scorer:</strong>
+                            {{ $fixture->scorer?->full_name ?: $fixture->scorer?->email ?: '—' }}
+                        </div>
                         @if(!$locked)
                         <div class="club-table-actions">
+                            <a href="{{ route('club.fixtures.availability', $fixture) }}" class="btn btn-sm btn-light border flex-grow-1">
+                                <i class="fas fa-user-check me-1"></i> Availability
+                            </a>
+                            <button type="button"
+                                class="btn btn-sm btn-light border flex-grow-1 assign-scorer-btn"
+                                data-fixture-id="{{ $fixture->id }}"
+                                data-current-scorer="{{ $fixture->scorer_user_id ?? '' }}">
+                                <i class="fas fa-user-pen me-1"></i> Assign Scorer
+                            </button>
                             <a href="{{ route('club.fixtures.edit', $fixture) }}" class="btn btn-sm btn-light border flex-grow-1">
                                 <i class="fas fa-edit me-1"></i> Edit
                             </a>
@@ -144,6 +176,50 @@
 
 @push('script')
 <script>
+    const scorerFormTemplate = (fixtureId, currentScorerId) => {
+        const action = `{{ url('/club/fixtures') }}/${fixtureId}/scorer`;
+        const optionsHtml = [
+            `<option value=\"\">No scorer</option>`,
+            @foreach($scorers as $s)
+                `<option value=\"{{ $s->id }}\">{{ addslashes($s->full_name ?: $s->email) }}</option>`,
+            @endforeach
+        ].join('');
+
+        return `
+            <form method="POST" action="${action}">
+                @csrf
+                <div class="mb-3 text-start">
+                    <label class="form-label">Select scorer</label>
+                    <select name="scorer_user_id" class="form-select" id="scorer_select">
+                        ${optionsHtml}
+                    </select>
+                    <div class="form-text">Only active club members (scorer/manager/captain/admin/owner) are shown.</div>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-light border" onclick="Swal.close()">Cancel</button>
+                    <button type="submit" class="btn btn-club-primary">Save</button>
+                </div>
+            </form>
+        `;
+    };
+
+    document.querySelectorAll('.assign-scorer-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const fixtureId = this.dataset.fixtureId;
+            const current = this.dataset.currentScorer || '';
+
+            Swal.fire({
+                title: 'Assign scorer',
+                html: scorerFormTemplate(fixtureId, current),
+                showConfirmButton: false,
+                didOpen: () => {
+                    const select = document.getElementById('scorer_select');
+                    if (select) select.value = current;
+                }
+            });
+        });
+    });
+
     document.querySelectorAll('.fixture-delete-form').forEach(function (form) {
         form.addEventListener('submit', function (e) {
             e.preventDefault();

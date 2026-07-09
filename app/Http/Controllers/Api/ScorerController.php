@@ -56,7 +56,7 @@ class ScorerController extends Controller
     public function startMatch(Request $request, int $fixtureId): JsonResponse
     {
         $fixture = $this->resolveScorerFixture($request, $fixtureId);
-        $user = $request->user();
+        $user = auth('sanctum')->user();
 
         $battingIsClub = $fixture->toss_winner_side === 'club'
             ? $fixture->toss_decision === 'bat'
@@ -282,7 +282,7 @@ class ScorerController extends Controller
 
     private function resolveScorerFixture(Request $request, int $fixtureId): Fixture
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
         $fixture = Fixture::with(['match', 'squads.player'])->find($fixtureId);
 
         if (!$fixture) {
@@ -298,7 +298,7 @@ class ScorerController extends Controller
 
     private function resolveScorerMatch(Request $request, int $matchId): Matchs
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
         $match = Matchs::with(['fixture', 'firstInnings', 'secondInnings'])->find($matchId);
 
         if (!$match) {

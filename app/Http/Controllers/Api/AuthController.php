@@ -26,6 +26,12 @@ class AuthController extends Controller
             ], 401);
         }
 
+        if (!$user->email_verified_at) {
+            return response()->json([
+                'message' => 'Please verify your email with OTP before logging in.',
+            ], 403);
+        }
+
         if (!$user->is_active) {
             return response()->json([
                 'message' => 'Your account is inactive.',
@@ -58,7 +64,7 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        auth('sanctum')->user()?->currentAccessToken()?->delete();
 
         return response()->json([
             'message' => 'Logged out successfully.',

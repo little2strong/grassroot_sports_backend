@@ -42,6 +42,10 @@ class ClubLoginController extends Controller
             return back()->withErrors(['email' => 'Your account is inactive. Contact support.'])->onlyInput('email');
         }
 
+        if (!$user->email_verified_at) {
+            return back()->withErrors(['email' => 'Please verify your email before logging in.'])->onlyInput('email');
+        }
+
         if (!$user->ownedClub()->exists()) {
             return back()->withErrors(['email' => 'No club is linked to this account yet.'])->onlyInput('email');
         }

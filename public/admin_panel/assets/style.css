@@ -613,8 +613,13 @@ h1, h2, h3, h4, h5, h6 {
 /* Data Table Style */
 .data-table {
     width: 100%;
-    border-collapse: separate;
+    border-collapse: collapse;
     border-spacing: 0;
+}
+
+/* Ensure Bootstrap table layout stays intact */
+.data-table.table > :not(caption) > * > * {
+    box-shadow: none;
 }
 
 .data-table thead th {
@@ -822,6 +827,15 @@ div.dataTables_wrapper div.dataTables_paginate ul.pagination {
 
 table.dataTable {
     margin-top: 12px !important;
+}
+
+/* DataTables + Bootstrap responsive fix: prevent header/body misalignment */
+table.dataTable.table {
+    width: 100% !important;
+}
+
+div.dataTables_wrapper div.dataTables_processing {
+    z-index: 1050;
 }
 
 table.dataTable>tbody>tr.child ul.dtr-details {

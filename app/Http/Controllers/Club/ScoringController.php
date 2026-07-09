@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Club;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Club\Concerns\ResolvesClub;
 use App\Models\Fixture;
+use App\Models\Innings;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class ScoringController extends Controller
 {
@@ -35,6 +37,77 @@ class ScoringController extends Controller
             'club' => $club,
             'liveFixtures' => $liveFixtures,
             'readyFixtures' => $readyFixtures,
+        ]);
+    }
+
+    public function matches(Request $request): View
+    {
+        $club = $this->resolveClub($request);
+
+        $fixtures = Fixture::forClub($club->id)
+            ->with(['homeTeam', 'awayTeam', 'venue', 'match'])
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
+            ->orderByDesc('scheduled_date')
+            ->orderByDesc('scheduled_time')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('club.scoring.matches', [
+            'title' => 'Matches',
+            'club' => $club,
+            'fixtures' => $fixtures,
+            'statusFilter' => $request->query('status'),
+        ]);
+    }
+
+    public function show(Request $request, int $fixture): View
+    {
+        $club = $this->resolveClub($request);
+
+        $record = Fixture::forClub($club->id)
+            ->with([
+                'homeTeam',
+                'awayTeam',
+                'venue',
+                'winner',
+                'manOfTheMatch',
+                'match.firstInnings.battingScores.player',
+                'match.firstInnings.bowlingFigures.bowler',
+                'match.firstInnings.wickets.ballEvent',
+                'match.secondInnings.battingScores.player',
+                'match.secondInnings.bowlingFigures.bowler',
+                'match.secondInnings.wickets.ballEvent',
+                'summary',
+            ])
+            ->where('id', $fixture)
+            ->firstOrFail();
+
+        $match = $record->match;
+
+        $innings = collect();
+        if ($match) {
+            $innings = Innings::query()
+                ->where('match_id', $match->id)
+                ->with([
+                    'battingTeam',
+                    'bowlingTeam',
+                    'battingScores.player',
+                    'bowlingFigures.bowler',
+                    'wickets.bowler',
+                    'wickets.fielderOne',
+                    'ballEvents',
+                    'overSummaries.bowler',
+                ])
+                ->orderBy('innings_number')
+                ->get();
+        }
+
+        return view('club.scoring.show', [
+            'title' => 'Match Scorecard',
+            'club' => $club,
+            'fixture' => $record,
+            'match' => $match,
+            'innings' => $innings,
         ]);
     }
 }

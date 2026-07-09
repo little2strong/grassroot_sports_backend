@@ -21,7 +21,9 @@ class User extends Authenticatable
         'is_active',
         'user_type',
         'image',
-        'is_onboarded'
+        'is_onboarded',
+        'email_otp_hash',
+        'email_otp_expires_at',
     ];
 
     protected $hidden = [
@@ -33,6 +35,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'email_otp_expires_at' => 'datetime',
             'password' => 'hashed',
             'date_of_birth' => 'date',
             'is_active' => 'boolean',

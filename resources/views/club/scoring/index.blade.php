@@ -28,11 +28,16 @@
                         —
                         {{ $fixture->away_team_runs }}/{{ $fixture->away_team_wickets }} ({{ $fixture->away_team_overs }})
                     </p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border">
+                            <i class="fas fa-chart-bar me-1"></i> Scorecard
+                        </a>
                     @if($fixture->is_public && $fixture->public_share_slug)
                         <a href="{{ $fixture->public_url }}" target="_blank" class="btn btn-sm btn-club-primary">
                             <i class="fas fa-external-link-alt me-1"></i> Public score page
                         </a>
                     @endif
+                    </div>
                 </div>
             </div>
             @endforeach
@@ -43,6 +48,9 @@
     <div class="club-card">
         <div class="club-card-header">
             <h6 class="mb-0"><i class="fas fa-baseball-ball me-2 text-success"></i>Ready to Score</h6>
+            <a href="{{ route('club.scoring.matches') }}" class="btn btn-sm btn-light border">
+                <i class="fas fa-chart-bar me-1"></i> All matches
+            </a>
         </div>
         <div class="club-card-body">
             @if($readyFixtures->isEmpty() && $liveFixtures->isEmpty())

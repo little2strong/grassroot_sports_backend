@@ -85,6 +85,7 @@ Route::prefix('auth')->name('auth.')->group(function () {
 
     // Step 1: Basic info (first name, last name, email, phone, password)
     Route::post('/register', [RegisterController::class, 'registerStep1']);
+    Route::post('/register/verify-otp', [RegisterController::class, 'verifyEmailOtp']);
 
     // Step 2: Onboarding (choose club or player, submit club/team data)
     Route::post('/register/onboarding', [RegisterController::class, 'registerStep2']);

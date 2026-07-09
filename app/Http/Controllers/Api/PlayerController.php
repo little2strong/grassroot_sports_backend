@@ -316,7 +316,7 @@ class PlayerController extends Controller
 
     private function resolvePlayer(Request $request): User
     {
-        $user = $request->user();
+        $user = auth('sanctum')->user();
 
         if (!$user || $user->user_type !== 'player') {
             abort(response()->json([

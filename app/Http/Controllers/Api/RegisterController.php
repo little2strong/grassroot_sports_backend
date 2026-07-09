@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\EmailOtpMail;
 use App\Models\Club;
 use App\Models\ClubMember;
 use App\Models\Team;
@@ -12,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 class RegisterController extends Controller
 {
@@ -25,15 +27,34 @@ class RegisterController extends Controller
             'password'   => 'required|string|min:8|confirmed',
         ]);
 
+        $expiresInMinutes = 10;
+        $otp = (string) random_int(100000, 999999);
+
+        $user = User::create([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'password' => Hash::make($validated['password']),
+            'user_type' => null,
+            'is_active' => true,
+            'is_onboarded' => false,
+            'email_verified_at' => null,
+            'email_otp_hash' => Hash::make($otp),
+            'email_otp_expires_at' => now()->addMinutes($expiresInMinutes),
+        ]);
+
+        Mail::to($user->email)->send(new EmailOtpMail(
+            otp: $otp,
+            expiresInMinutes: $expiresInMinutes,
+            purpose: 'Verify your email'
+        ));
+
         return response()->json([
-            'message' => 'Basic info saved. Proceed to onboarding.',
+            'message' => 'OTP sent to your email. Verify OTP to continue.',
             'data' => [
                 'token' => encrypt(json_encode([
-                    'first_name' => $validated['first_name'],
-                    'last_name'  => $validated['last_name'],
-                    'email'      => $validated['email'],
-                    'phone'      => $validated['phone'] ?? null,
-                    'password'   => $validated['password'],
+                    'user_id' => $user->id,
                 ])),
             ],
             'onboarding' => [
@@ -49,6 +70,59 @@ class RegisterController extends Controller
                 ],
             ],
         ], 201);
+    }
+
+    public function verifyEmailOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'token' => 'required|string',
+            'otp' => 'required|string|min:4|max:10',
+        ]);
+
+        $decoded = json_decode(decrypt($validated['token']), true);
+
+        if (!$decoded || empty($decoded['user_id'])) {
+            throw ValidationException::withMessages([
+                'token' => 'Invalid or expired token.',
+            ]);
+        }
+
+        $user = User::query()->find((int) $decoded['user_id']);
+
+        if (!$user) {
+            return response()->json(['message' => 'Account not found.'], 404);
+        }
+
+        if ($user->email_verified_at) {
+            return response()->json([
+                'message' => 'Email already verified.',
+            ]);
+        }
+
+        if (!$user->email_otp_expires_at || $user->email_otp_expires_at->isPast()) {
+            return response()->json([
+                'message' => 'OTP expired. Please register again to receive a new OTP.',
+            ], 422);
+        }
+
+        if (!$user->email_otp_hash || !Hash::check($validated['otp'], $user->email_otp_hash)) {
+            return response()->json([
+                'message' => 'Invalid OTP.',
+            ], 422);
+        }
+
+        $user->update([
+            'email_verified_at' => now(),
+            'email_otp_hash' => null,
+            'email_otp_expires_at' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Email verified successfully.',
+            'data' => [
+                'token' => $validated['token'],
+            ],
+        ]);
     }
 
     /**
@@ -69,7 +143,7 @@ class RegisterController extends Controller
     public function registerStep2(Request $request): JsonResponse
     {
         // dd($request->headers->all());
-        $token = $request->bearerToken();
+        $token = $request->header('X-Auth-Token') ?: $request->bearerToken();
 
         if (!$token) {
             throw ValidationException::withMessages([
@@ -85,6 +159,24 @@ class RegisterController extends Controller
             ]);
         }
 
+        $user = User::query()->find((int) ($decoded['user_id'] ?? 0));
+
+        if (!$user) {
+            return response()->json(['message' => 'Account not found.'], 404);
+        }
+
+        if (!$user->email_verified_at) {
+            return response()->json([
+                'message' => 'Please verify your email with OTP before onboarding.',
+            ], 403);
+        }
+
+        if ($user->is_onboarded) {
+            return response()->json([
+                'message' => 'Onboarding already completed for this account.',
+            ], 422);
+        }
+
         $choice = $request->input('choice');
 
         if (!in_array($choice, ['club', 'player'])) {
@@ -94,15 +186,15 @@ class RegisterController extends Controller
         }
 
         return match ($choice) {
-            'player' => $this->registerAsPlayer($decoded, $request),
-            'club'   => $this->registerAsClub($decoded, $request),
+            'player' => $this->registerAsPlayer($user, $request),
+            'club'   => $this->registerAsClub($user, $request),
         };
     }
 
     /**
      * Create Player
      */
-    private function registerAsPlayer(array $decoded, Request $request): JsonResponse
+    private function registerAsPlayer(User $user, Request $request): JsonResponse
     {
         $validated = $request->validate([
             'batting_style' => 'nullable|in:right_hand,left_hand',
@@ -124,20 +216,11 @@ class RegisterController extends Controller
             $image = 'uploads/user/' . $imageName;
         }
 
-        return DB::transaction(function () use ($decoded, $validated, $image) {
-
-            $user = User::create([
-                'first_name' => $decoded['first_name'],
-                'last_name' => $decoded['last_name'],
-                'name' => trim($decoded['first_name'] . ' ' . $decoded['last_name']),
-                'email' => $decoded['email'],
-                'phone' => $decoded['phone'],
-                'password' => Hash::make($decoded['password']),
+        return DB::transaction(function () use ($user, $validated, $image) {
+            $user->update([
                 'image' => $image,
                 'user_type' => 'player',
-                'is_active' => true,
-                'email_verified_at' => now(),
-                'is_onboarded' => '1'
+                'is_onboarded' => true,
             ]);
 
             $user->playerProfile()->create([
@@ -158,7 +241,7 @@ class RegisterController extends Controller
     /**
      * Create Club
      */
-    private function registerAsClub(array $decoded, Request $request): JsonResponse
+    private function registerAsClub(User $user, Request $request): JsonResponse
     {
         $validated = $request->validate([
             'club_name' => 'required|string|max:255',
@@ -200,19 +283,10 @@ class RegisterController extends Controller
             $coverImage = 'uploads/user/' . $coverName;
         }
 
-        return DB::transaction(function () use ($decoded, $validated, $logo, $coverImage) {
-
-            $user = User::create([
-                'first_name' => $decoded['first_name'],
-                'last_name' => $decoded['last_name'],
-                'name' => trim($decoded['first_name'] . ' ' . $decoded['last_name']),
-                'email' => $decoded['email'],
-                'phone' => $decoded['phone'],
-                'password' => Hash::make($decoded['password']),
+        return DB::transaction(function () use ($user, $validated, $logo, $coverImage) {
+            $user->update([
                 'user_type' => 'club',
-                'is_active' => true,
-                'email_verified_at' => now(),
-                'is_onboarded' => '1',
+                'is_onboarded' => true,
             ]);
 
             $slug = \Illuminate\Support\Str::slug($validated['club_name']) . '-' . \Illuminate\Support\Str::random(6);

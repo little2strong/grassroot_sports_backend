@@ -55,6 +55,9 @@
                                 </td>
                                 <td class="text-end">
                                     <div class="club-table-actions">
+                                        <a href="{{ route('club.squads.players', $team) }}" class="btn btn-sm btn-light border" title="Players">
+                                            <i class="fas fa-user-friends"></i>
+                                        </a>
                                         <a href="{{ route('club.squads.edit', $team) }}" class="btn btn-sm btn-light border" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
@@ -86,6 +89,9 @@
                             <span>{{ $team->players_count }} players</span>
                         </div>
                         <div class="club-table-actions">
+                            <a href="{{ route('club.squads.players', $team) }}" class="btn btn-sm btn-light border flex-grow-1">
+                                <i class="fas fa-user-friends me-1"></i> Players
+                            </a>
                             <a href="{{ route('club.squads.edit', $team) }}" class="btn btn-sm btn-light border flex-grow-1">
                                 <i class="fas fa-edit me-1"></i> Edit
                             </a>
