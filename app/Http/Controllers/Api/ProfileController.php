@@ -68,6 +68,51 @@ class ProfileController extends Controller
         ]);
     }
 
+    public function availableClubPlayers(string $club): JsonResponse
+    {
+        $club = $this->resolveClub($club);
+
+        if (!$club) {
+            return response()->json([
+                'message' => 'Club not found.',
+            ], 404);
+        }
+
+        if (!$club->is_public) {
+            return response()->json([
+                'message' => 'This club is not public.',
+            ], 403);
+        }
+
+        $memberIds = $club->members()
+            ->active()
+            ->pluck('user_id');
+
+        $players = User::query()
+            ->where('user_type', 'player')
+            ->where('is_active', true)
+            ->whereNotIn('id', $memberIds)
+            ->with('playerProfile')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+
+        return response()->json([
+            'message' => 'Available players fetched successfully.',
+            'data' => [
+                'club' => [
+                    'id' => $club->id,
+                    'name' => $club->name,
+                    'slug' => $club->slug,
+                    'short_name' => $club->short_name,
+                    'logo_url' => $this->assetUrl($club->logo),
+                ],
+                'players_count' => $players->count(),
+                'players' => $players->map(fn ($player) => $this->formatAvailablePlayer($player))->values(),
+            ],
+        ]);
+    }
+
     public function player(Request $request): JsonResponse
     {
         $user = auth('sanctum')->user();
@@ -793,6 +838,7 @@ class ProfileController extends Controller
             'first_name' => $club->hide_player_names_publicly ? null : $user->first_name,
             'last_name' => $club->hide_player_names_publicly ? null : $user->last_name,
             'full_name' => $club->hide_player_names_publicly ? 'Player #' . $user->id : $fullName,
+            'image' => $club->hide_player_photos_publicly ? null : $user->image,
             'image_url' => $club->hide_player_photos_publicly ? null : $this->assetUrl($user->image),
             'club_role' => $member->role,
             'joined_at' => optional($member->joined_at)->toIso8601String(),
@@ -821,6 +867,37 @@ class ProfileController extends Controller
                 'role' => $teamMember->role,
                 'jersey_number' => $teamMember->jersey_number,
             ])->values(),
+        ];
+    }
+
+    private function formatAvailablePlayer($user): array
+    {
+        return [
+            'id' => $user->id,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'full_name' => trim($user->first_name . ' ' . $user->last_name),
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'image' => $user->image,
+            'image_url' => $this->assetUrl($user->image),
+            'player_profile' => $user->playerProfile ? [
+                'primary_role' => $user->playerProfile->primary_role,
+                'role_label' => $user->playerProfile->role_label,
+                'batting_style' => $user->playerProfile->batting_style,
+                'batting_style_label' => $user->playerProfile->batting_style_label,
+                'bowling_style' => $user->playerProfile->bowling_style,
+                'bowling_style_label' => $user->playerProfile->bowling_style_label,
+                'bio' => $user->playerProfile->bio,
+                'total_matches' => $user->playerProfile->total_matches,
+                'total_runs' => $user->playerProfile->total_runs,
+                'total_wickets' => $user->playerProfile->total_wickets,
+                'highest_score' => $user->playerProfile->highest_score,
+                'total_fifties' => $user->playerProfile->total_fifties,
+                'total_hundreds' => $user->playerProfile->total_hundreds,
+                'total_five_wickets' => $user->playerProfile->total_five_wickets,
+                'average' => $user->playerProfile->average,
+            ] : null,
         ];
     }
 
