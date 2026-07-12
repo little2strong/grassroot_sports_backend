@@ -56,6 +56,10 @@ Route::prefix('club')->name('club.')->group(function () {
         Route::delete('/fixtures/{fixture}', [FixtureController::class, 'destroy'])->name('fixtures.destroy');
         Route::get('/fixtures/{fixture}/availability', [FixtureController::class, 'availability'])->name('fixtures.availability');
         Route::post('/fixtures/{fixture}/scorer', [FixtureController::class, 'assignScorer'])->name('fixtures.assign-scorer');
+        Route::get('/fixtures/{fixture}/collect-fee', [FixtureController::class, 'showCollectFee'])->name('fixtures.collect-fee');
+        Route::post('/fixtures/{fixture}/collect-fee', [FixtureController::class, 'collectFee'])->name('fixtures.collect-fee.store');
+        Route::get('/fixtures/{fixture}/bulk-collect-fee', [FixtureController::class, 'showBulkCollectFee'])->name('fixtures.bulk-collect-fee');
+        Route::post('/fixtures/{fixture}/bulk-collect-fee', [FixtureController::class, 'bulkCollectFee'])->name('fixtures.bulk-collect-fee.store');
 
         Route::get('/players', [PlayerController::class, 'index'])->name('players.index');
         Route::get('/players/{player}', [PlayerController::class, 'show'])->name('players.show');

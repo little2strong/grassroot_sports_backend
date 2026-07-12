@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Club;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Club\Concerns\ResolvesClub;
+use App\Http\Controllers\Controller;
 use App\Models\Availability;
-use App\Models\Fixture;
 use App\Models\ClubMember;
+use App\Models\Fixture;
+use App\Models\MatchFee;
 use App\Models\TeamMember;
-use App\Models\Team;
 use App\Models\User;
 use App\Models\Venue;
 use Illuminate\Http\RedirectResponse;
@@ -128,7 +128,7 @@ class FixtureController extends Controller
         $payload = $this->buildFixturePayload($validated);
         $payload['status'] = $newStatus;
 
-        if ($newStatus === 'published' && !$record->published_at) {
+        if ($newStatus === 'published' && ! $record->published_at) {
             $payload['published_at'] = now();
         }
 
@@ -259,7 +259,7 @@ class FixtureController extends Controller
                 // ->whereIn('role', ['owner', 'admin', 'manager', 'scorer', 'captain'])
                 ->exists();
 
-            if (!$allowed) {
+            if (! $allowed) {
                 return back()->with('error', 'Selected scorer is not allowed for your club.');
             }
         }
@@ -274,6 +274,238 @@ class FixtureController extends Controller
         return redirect()
             ->route('club.fixtures.index')
             ->with('success', "Scorer updated: {$name}.");
+    }
+
+    public function showCollectFee(Request $request, int $fixture): View
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        $teamId = $record->clubTeamId();
+        $team = $teamId
+            ? $club->teams()->where('id', $teamId)->first()
+            : null;
+
+        $members = collect();
+        if ($team) {
+            $members = TeamMember::query()
+                ->where('team_id', $team->id)
+                ->where('is_active', true)
+                ->with('user.playerProfile')
+                ->orderBy('jersey_number')
+                ->get();
+        }
+
+        $existingFees = MatchFee::query()
+            ->where('fixture_id', $record->id)
+            ->with('player')
+            ->get();
+
+        return view('club.fixtures.collect-fee', [
+            'title' => 'Collect Fee',
+            'club' => $club,
+            'fixture' => $record,
+            'team' => $team,
+            'members' => $members,
+            'existingFees' => $existingFees,
+        ]);
+    }
+
+    public function collectFee(Request $request, int $fixture): RedirectResponse
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        $teamId = $record->clubTeamId();
+        $team = $teamId
+            ? $club->teams()->where('id', $teamId)->first()
+            : null;
+
+        $validated = $request->validate([
+            'player_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($q) => $q->where('user_type', 'player')->where('is_active', true)),
+            ],
+            'amount' => 'required|numeric|min:0',
+            'currency' => 'sometimes|required|string|max:3',
+            'notes' => 'sometimes|nullable|string|max:1000',
+            'payment_reference' => 'sometimes|nullable|string|max:255',
+        ]);
+
+        $player = User::where('user_type', 'player')->where('is_active', true)->find($validated['player_id']);
+
+        if (! $player) {
+            return redirect()
+                ->route('club.fixtures.index')
+                ->with('error', 'Player not found or not active.');
+        }
+
+        MatchFee::create([
+            'fixture_id' => $record->id,
+            'team_id' => $team?->id,
+            'user_id' => $player->id,
+            'amount' => $validated['amount'],
+            'currency' => $validated['currency'] ?? 'USD',
+            'status' => 'verified',
+            'due_date' => now()->addDays(7),
+            'notes' => $validated['notes'] ?? null,
+            'payment_reference' => $validated['payment_reference'] ?? null,
+            'assigned_by' => $request->user()->id,
+            'paid_by_player_at' => now(),
+            'verified_by' => $request->user()->id,
+            'verified_at' => now(),
+        ]);
+
+        return redirect()
+            ->route('club.fixtures.index')
+            ->with('success', "Fee collected from {$player->name} successfully.");
+    }
+
+    public function showBulkCollectFee(Request $request, int $fixture): View
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        $teamId = $record->clubTeamId();
+        $team = $teamId
+            ? $club->teams()->where('id', $teamId)->first()
+            : null;
+
+        $members = collect();
+        if ($team) {
+            $members = TeamMember::query()
+                ->where('team_id', $team->id)
+                ->where('is_active', true)
+                ->with('user.playerProfile')
+                ->orderBy('jersey_number')
+                ->get();
+        }
+
+        $existingFees = MatchFee::query()
+            ->where('fixture_id', $record->id)
+            ->with('player')
+            ->get()
+            ->keyBy('user_id');
+
+        $existingFeesList = $existingFees->values();
+
+        return view('club.fixtures.bulk-collect-fee', [
+            'title' => 'Bulk Collect Fee',
+            'club' => $club,
+            'fixture' => $record,
+            'team' => $team,
+            'members' => $members,
+            'existingFees' => $existingFeesList,
+            'existingFeesByPlayer' => $existingFees,
+        ]);
+    }
+
+    public function bulkCollectFee(Request $request, int $fixture): RedirectResponse
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        $teamId = $record->clubTeamId();
+        $team = $teamId
+            ? $club->teams()->where('id', $teamId)->first()
+            : null;
+
+        $validated = $request->validate([
+            'players' => 'sometimes|array',
+            'players.*.player_id' => 'required|integer',
+            'players.*.amount' => 'required|numeric|min:0',
+            'collect_all' => 'sometimes|boolean',
+            'all_amount' => 'sometimes|required|numeric|min:0',
+            'currency' => 'sometimes|required|string|max:3',
+            'payment_reference' => 'sometimes|nullable|string|max:255',
+            'notes' => 'sometimes|nullable|string|max:1000',
+        ]);
+
+        $currency = $validated['currency'] ?? 'USD';
+        $paymentReference = $validated['payment_reference'] ?? null;
+        $notes = $validated['notes'] ?? null;
+
+        $collectedCount = 0;
+        $skippedCount = 0;
+        $skippedPlayers = [];
+
+        $existingFees = MatchFee::query()
+            ->where('fixture_id', $record->id)
+            ->pluck('user_id')
+            ->toArray();
+
+        if (! empty($validated['collect_all'])) {
+            $allAmount = $validated['all_amount'] ?? 0;
+            foreach ($members as $member) {
+                if (in_array($member->user->id, $existingFees)) {
+                    continue;
+                }
+
+                MatchFee::create([
+                    'fixture_id' => $record->id,
+                    'team_id' => $team?->id,
+                    'user_id' => $member->user->id,
+                    'amount' => $allAmount,
+                    'currency' => $currency,
+                    'status' => 'verified',
+                    'due_date' => now()->addDays(7),
+                    'notes' => $notes,
+                    'payment_reference' => $paymentReference,
+                    'assigned_by' => $request->user()->id,
+                    'paid_by_player_at' => now(),
+                    'verified_by' => $request->user()->id,
+                    'verified_at' => now(),
+                ]);
+
+                $collectedCount++;
+            }
+        } else {
+            foreach ($validated['players'] ?? [] as $playerId => $playerData) {
+                $player = User::where('user_type', 'player')->where('is_active', true)->find($playerData['player_id']);
+
+                if (! $player) {
+                    $skippedCount++;
+                    $skippedPlayers[] = "Player ID {$playerData['player_id']} not found";
+
+                    continue;
+                }
+
+                if (in_array($player->id, $existingFees)) {
+                    $skippedCount++;
+                    $skippedPlayers[] = "Player {$player->name} already has a fee collected";
+
+                    continue;
+                }
+
+                MatchFee::create([
+                    'fixture_id' => $record->id,
+                    'team_id' => $team?->id,
+                    'user_id' => $player->id,
+                    'amount' => $playerData['amount'],
+                    'currency' => $currency,
+                    'status' => 'verified',
+                    'due_date' => now()->addDays(7),
+                    'notes' => $notes,
+                    'payment_reference' => $paymentReference,
+                    'assigned_by' => $request->user()->id,
+                    'paid_by_player_at' => now(),
+                    'verified_by' => $request->user()->id,
+                    'verified_at' => now(),
+                ]);
+
+                $collectedCount++;
+            }
+        }
+
+        $message = "Fees collected for {$collectedCount} player(s).";
+        if ($skippedCount > 0) {
+            $message .= " {$skippedCount} player(s) skipped.";
+        }
+
+        return redirect()
+            ->route('club.fixtures.index')
+            ->with('success', $message);
     }
 
     private function resolveFixture($club, int $fixtureId): Fixture

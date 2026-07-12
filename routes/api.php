@@ -15,7 +15,6 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 
-
 Route::get('/clubs/{club}/players', [ProfileController::class, 'publicClubPlayers']);
 Route::get('/clubs/{club}/available-players', [ProfileController::class, 'availableClubPlayers']);
 Route::get('/invitations/{token}/accept', [ProfileController::class, 'acceptInvitation']);
@@ -66,6 +65,7 @@ Route::middleware('auth:sanctum')->prefix('club')->group(function () {
     Route::post('/{clubId}/fixtures/{fixtureId}/opponent-players', [ClubController::class, 'setFixtureOpponentPlayers']);
     Route::post('/{clubId}/fixtures/{fixtureId}/scorer', [ClubController::class, 'setFixtureScorer']);
     Route::post('/{clubId}/import/fixtures', [ClubController::class, 'importFixtures']);
+    Route::post('/{clubId}/fees', [ClubController::class, 'collectFee']);
 });
 
 Route::middleware('auth:sanctum')->prefix('scorer')->group(function () {

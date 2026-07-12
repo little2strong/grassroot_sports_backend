@@ -93,6 +93,12 @@
                                         <a href="{{ route('club.fixtures.availability', $fixture) }}" class="btn btn-sm btn-light border" title="Availability">
                                             <i class="fas fa-user-check"></i>
                                         </a>
+                                        <a href="{{ route('club.fixtures.collect-fee', $fixture) }}" class="btn btn-sm btn-light border" title="Collect Fee">
+                                            <i class="fas fa-money-bill"></i>
+                                        </a>
+                                        <a href="{{ route('club.fixtures.bulk-collect-fee', $fixture) }}" class="btn btn-sm btn-light border" title="Bulk Collect Fee">
+                                            <i class="fas fa-users"></i>
+                                        </a>
                                         @if(!$locked)
                                             <button type="button"
                                                 class="btn btn-sm btn-light border assign-scorer-btn"
@@ -143,6 +149,12 @@
                         <div class="club-table-actions">
                             <a href="{{ route('club.fixtures.availability', $fixture) }}" class="btn btn-sm btn-light border flex-grow-1">
                                 <i class="fas fa-user-check me-1"></i> Availability
+                            </a>
+                            <a href="{{ route('club.fixtures.collect-fee', $fixture) }}" class="btn btn-sm btn-light border flex-grow-1">
+                                <i class="fas fa-money-bill me-1"></i> Collect Fee
+                            </a>
+                            <a href="{{ route('club.fixtures.bulk-collect-fee', $fixture) }}" class="btn btn-sm btn-light border flex-grow-1">
+                                <i class="fas fa-users me-1"></i> Bulk Collect
                             </a>
                             <button type="button"
                                 class="btn btn-sm btn-light border flex-grow-1 assign-scorer-btn"

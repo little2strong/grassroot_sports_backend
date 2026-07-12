@@ -4,13 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Availability;
-use App\Models\ClubMember;
 use App\Models\Club;
+use App\Models\ClubMember;
 use App\Models\Fixture;
 use App\Models\FixtureImport;
+use App\Models\MatchFee;
 use App\Models\Squad;
-use App\Models\TeamMember;
 use App\Models\Team;
+use App\Models\TeamMember;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +25,7 @@ class ClubController extends Controller
     {
         $user = auth('sanctum')->user();
 
-        if (!$clubId && $user && $user->user_type === 'club') {
+        if (! $clubId && $user && $user->user_type === 'club') {
             $club = $user->ownedClub()->first();
         } elseif ($clubId) {
             $club = Club::query()->find($clubId);
@@ -31,7 +33,7 @@ class ClubController extends Controller
             return response()->json(['message' => 'Club id required'], 422);
         }
 
-        if (!$club) {
+        if (! $club) {
             return response()->json(['message' => 'Club not found'], 404);
         }
 
@@ -45,7 +47,7 @@ class ClubController extends Controller
                 'short_name' => $team->short_name,
                 'primary_color' => $team->primary_color,
                 'secondary_color' => $team->secondary_color,
-                'is_active' => (bool)$team->is_active,
+                'is_active' => (bool) $team->is_active,
                 'player_count' => $team->playerCount(),
             ];
         });
@@ -60,13 +62,13 @@ class ClubController extends Controller
                 ->with('playerProfile');
         }])->find($teamId);
 
-        if (!$team) {
+        if (! $team) {
             return response()->json(['message' => 'Squad not found'], 404);
         }
 
         $players = $team->players->map(function ($user) {
             $profile = $user->playerProfile;
-            $displayName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+            $displayName = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
 
             return [
                 'id' => $user->id,
@@ -115,7 +117,7 @@ class ClubController extends Controller
     {
         $club = $this->resolveClub($request, $clubId);
 
-        if (!$club) {
+        if (! $club) {
             return response()->json(['message' => 'Club not found or access denied.'], 404);
         }
 
@@ -133,7 +135,7 @@ class ClubController extends Controller
             ->orderBy('scheduled_date')
             ->orderBy('scheduled_time');
 
-        if (!empty($validated['status'])) {
+        if (! empty($validated['status'])) {
             $query->where('status', $validated['status']);
         }
 
@@ -141,11 +143,11 @@ class ClubController extends Controller
             $query->upcoming();
         }
 
-        if (!empty($validated['from'])) {
+        if (! empty($validated['from'])) {
             $query->where('scheduled_date', '>=', $validated['from']);
         }
 
-        if (!empty($validated['to'])) {
+        if (! empty($validated['to'])) {
             $query->where('scheduled_date', '<=', $validated['to']);
         }
 
@@ -163,7 +165,7 @@ class ClubController extends Controller
     {
         $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
 
-        if (!$fixture) {
+        if (! $fixture) {
             return response()->json(['message' => 'Fixture not found or access denied.'], 404);
         }
 
@@ -180,7 +182,7 @@ class ClubController extends Controller
         // dd($request->all());
         $club = $this->resolveClub($request, $clubId);
 
-        if (!$club) {
+        if (! $club) {
             return response()->json(['message' => 'Club not found or access denied.'], 404);
         }
 
@@ -209,7 +211,7 @@ class ClubController extends Controller
     {
         $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
 
-        if (!$fixture) {
+        if (! $fixture) {
             return response()->json(['message' => 'Fixture not found or access denied.'], 404);
         }
 
@@ -222,7 +224,7 @@ class ClubController extends Controller
 
         $newStatus = $validated['status'] ?? $fixture->status;
 
-        if ($newStatus === 'published' && !$fixture->published_at) {
+        if ($newStatus === 'published' && ! $fixture->published_at) {
             $validated['published_at'] = now();
         }
 
@@ -239,7 +241,7 @@ class ClubController extends Controller
     {
         $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
 
-        if (!$fixture) {
+        if (! $fixture) {
             return response()->json(['message' => 'Fixture not found or access denied.'], 404);
         }
 
@@ -256,13 +258,13 @@ class ClubController extends Controller
 
         $teamId = $validated['team_id'] ?? $fixture->clubTeamId();
 
-        if (!$teamId) {
+        if (! $teamId) {
             return response()->json(['message' => 'Select a club squad for this fixture first.'], 422);
         }
 
         $team = Team::query()->where('id', $teamId)->where('club_id', $club->id)->first();
 
-        if (!$team) {
+        if (! $team) {
             return response()->json(['message' => 'Club team not found.'], 404);
         }
 
@@ -281,7 +283,7 @@ class ClubController extends Controller
         $players = $members->map(function (TeamMember $member) use ($availabilityByUser) {
             $user = $member->user;
             $availability = $availabilityByUser->get($member->user_id);
-            $fullName = trim(($user?->first_name ?? '') . ' ' . ($user?->last_name ?? ''));
+            $fullName = trim(($user?->first_name ?? '').' '.($user?->last_name ?? ''));
 
             return [
                 'user_id' => $member->user_id,
@@ -305,7 +307,7 @@ class ClubController extends Controller
             ];
         });
 
-        if (!empty($validated['status'])) {
+        if (! empty($validated['status'])) {
             $players = $players->filter(function (array $player) use ($validated) {
                 return $player['availability']['status'] === $validated['status'];
             })->values();
@@ -347,7 +349,7 @@ class ClubController extends Controller
     {
         $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
 
-        if (!$fixture) {
+        if (! $fixture) {
             return response()->json(['message' => 'Fixture not found or access denied.'], 404);
         }
 
@@ -383,7 +385,7 @@ class ClubController extends Controller
 
         $team = Team::query()->where('id', $teamId)->where('club_id', $club->id)->first();
 
-        if (!$team) {
+        if (! $team) {
             return response()->json(['message' => 'Club team not found.'], 404);
         }
 
@@ -429,7 +431,7 @@ class ClubController extends Controller
                 ->where('is_active', true)
                 ->first();
 
-            if (!$teamMember) {
+            if (! $teamMember) {
                 throw ValidationException::withMessages([
                     'players' => ["Player {$userId} is not an active member of the selected club squad."],
                 ]);
@@ -437,13 +439,13 @@ class ClubController extends Controller
 
             $availability = $availabilityByUser->get($userId);
 
-            if ($availability?->status === 'unavailable' && !$allowUnavailable) {
+            if ($availability?->status === 'unavailable' && ! $allowUnavailable) {
                 throw ValidationException::withMessages([
                     'players' => ["Player {$userId} is marked unavailable for this match."],
                 ]);
             }
 
-            if ($availability?->status === 'maybe' && !$allowMaybe) {
+            if ($availability?->status === 'maybe' && ! $allowMaybe) {
                 throw ValidationException::withMessages([
                     'players' => ["Player {$userId} is marked as maybe for this match."],
                 ]);
@@ -502,20 +504,19 @@ class ClubController extends Controller
         ]);
     }
 
-
     public function setFixtureOpponentPlayers(Request $request, int $clubId, int $fixtureId): JsonResponse
     {
         $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
 
-        if (!$fixture) {
+        if (! $fixture) {
             return response()->json([
-                'message' => 'Fixture not found or access denied.'
+                'message' => 'Fixture not found or access denied.',
             ], 404);
         }
 
         if (in_array($fixture->status, ['live', 'paused', 'completed'], true)) {
             return response()->json([
-                'message' => 'Cannot change opponent players after the match is live or completed.'
+                'message' => 'Cannot change opponent players after the match is live or completed.',
             ], 422);
         }
 
@@ -546,8 +547,8 @@ class ClubController extends Controller
                 return [
                     'name' => trim($player['name']),
                     'role' => $player['role'],
-                    'is_captain' => (bool)($player['is_captain'] ?? false),
-                    'is_wicket_keeper' => (bool)($player['is_wicket_keeper'] ?? false),
+                    'is_captain' => (bool) ($player['is_captain'] ?? false),
+                    'is_wicket_keeper' => (bool) ($player['is_wicket_keeper'] ?? false),
                 ];
             })
             ->values()
@@ -555,7 +556,7 @@ class ClubController extends Controller
 
         if (empty($players)) {
             return response()->json([
-                'message' => 'Opponent players cannot be empty.'
+                'message' => 'Opponent players cannot be empty.',
             ], 422);
         }
 
@@ -564,7 +565,7 @@ class ClubController extends Controller
         if ($fixture->clubPlaysHome()) {
 
             $updates['away_opponent_name'] = array_key_exists('opponent_name', $validated)
-                ? trim((string)($validated['opponent_name'] ?? '')) ?: $fixture->away_opponent_name
+                ? trim((string) ($validated['opponent_name'] ?? '')) ?: $fixture->away_opponent_name
                 : $fixture->away_opponent_name;
 
             $updates['away_opponent_players'] = $players;
@@ -572,7 +573,7 @@ class ClubController extends Controller
         } else {
 
             $updates['home_opponent_name'] = array_key_exists('opponent_name', $validated)
-                ? trim((string)($validated['opponent_name'] ?? '')) ?: $fixture->home_opponent_name
+                ? trim((string) ($validated['opponent_name'] ?? '')) ?: $fixture->home_opponent_name
                 : $fixture->home_opponent_name;
 
             $updates['home_opponent_players'] = $players;
@@ -653,7 +654,7 @@ class ClubController extends Controller
     {
         $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
 
-        if (!$fixture) {
+        if (! $fixture) {
             return response()->json(['message' => 'Fixture not found or access denied.'], 404);
         }
 
@@ -677,7 +678,7 @@ class ClubController extends Controller
             ->where('status', 'active')
             ->exists();
 
-        if (!$isClubMember) {
+        if (! $isClubMember) {
             return response()->json(['message' => 'Selected scorer must be an active member of this club.'], 422);
         }
 
@@ -701,7 +702,7 @@ class ClubController extends Controller
         // dd($request->all());
         $club = $this->resolveClub($request, $clubId);
 
-        if (!$club) {
+        if (! $club) {
             return response()->json(['message' => 'Club not found or access denied.'], 404);
         }
 
@@ -751,11 +752,97 @@ class ClubController extends Controller
         ], 201);
     }
 
+    public function collectFee(Request $request, int $clubId): JsonResponse
+    {
+        $club = $this->resolveClub($request, $clubId);
+
+        if (! $club) {
+            return response()->json(['message' => 'Club not found or access denied.'], 404);
+        }
+
+        $validated = $request->validate([
+            'player_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($q) => $q->where('user_type', 'player')->where('is_active', true)),
+            ],
+            'amount' => 'required|numeric|min:0',
+            'currency' => 'sometimes|required|string|max:3',
+            'fixture_id' => 'sometimes|nullable|integer|exists:fixtures,id',
+            'team_id' => 'sometimes|nullable|integer|exists:teams,id',
+            'notes' => 'sometimes|nullable|string|max:1000',
+            'payment_reference' => 'sometimes|nullable|string|max:255',
+        ]);
+
+        $player = User::where('user_type', 'player')->where('is_active', true)->find($validated['player_id']);
+
+        if (! $player) {
+            return response()->json(['message' => 'Player not found or not active.'], 404);
+        }
+
+        if (isset($validated['fixture_id'])) {
+            $fixture = Fixture::query()
+                ->forClub($club->id)
+                ->where('id', $validated['fixture_id'])
+                ->first();
+
+            if (! $fixture) {
+                return response()->json(['message' => 'Fixture not found or not owned by this club.'], 404);
+            }
+        }
+
+        if (isset($validated['team_id'])) {
+            $team = Team::where('id', $validated['team_id'])->where('club_id', $club->id)->first();
+            if (! $team) {
+                return response()->json(['message' => 'Team not found or not owned by this club.'], 404);
+            }
+        }
+
+        $matchFee = MatchFee::create([
+            'fixture_id' => $validated['fixture_id'] ?? null,
+            'team_id' => $validated['team_id'] ?? null,
+            'user_id' => $player->id,
+            'amount' => $validated['amount'],
+            'currency' => $validated['currency'] ?? 'USD',
+            'status' => 'verified',
+            'due_date' => now()->addDays(7),
+            'notes' => $validated['notes'] ?? null,
+            'payment_reference' => $validated['payment_reference'] ?? null,
+            'assigned_by' => auth('sanctum')->id(),
+            'paid_by_player_at' => now(),
+            'verified_by' => auth('sanctum')->id(),
+            'verified_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Fee collected successfully.',
+            'data' => [
+                'match_fee' => [
+                    'id' => $matchFee->id,
+                    'player' => [
+                        'id' => $player->id,
+                        'name' => $player->name,
+                    ],
+                    'amount' => $matchFee->amount,
+                    'currency' => $matchFee->currency,
+                    'status' => $matchFee->status,
+                    'status_label' => $matchFee->status_label,
+                    'paid_by_player_at' => $matchFee->paid_by_player_at?->toIso8601String(),
+                    'verified_by' => $matchFee->verified_by,
+                    'verified_at' => $matchFee->verified_at?->toIso8601String(),
+                    'notes' => $matchFee->notes,
+                    'payment_reference' => $matchFee->payment_reference,
+                    'created_at' => $matchFee->created_at?->toIso8601String(),
+                ],
+            ],
+        ], 201);
+    }
+
     private function resolveClub(Request $request, int $clubId): ?Club
     {
         $user = auth('sanctum')->user();
 
-        if (!$user || $user->user_type !== 'club') {
+        if (! $user || $user->user_type !== 'club') {
             return null;
         }
 
@@ -768,7 +855,7 @@ class ClubController extends Controller
     {
         $club = $this->resolveClub($request, $clubId);
 
-        if (!$club) {
+        if (! $club) {
             return null;
         }
 
@@ -865,7 +952,7 @@ class ClubController extends Controller
 
     private function assertFixtureScorerRule(array $validated, Club $club): void
     {
-        if (!array_key_exists('scorer_user_id', $validated) || $validated['scorer_user_id'] === null) {
+        if (! array_key_exists('scorer_user_id', $validated) || $validated['scorer_user_id'] === null) {
             return;
         }
 
@@ -876,7 +963,7 @@ class ClubController extends Controller
             ->where('status', 'active')
             ->exists();
 
-        if (!$isClubMember) {
+        if (! $isClubMember) {
             throw ValidationException::withMessages([
                 'scorer_user_id' => ['Selected scorer must be an active member of this club.'],
             ]);
@@ -914,7 +1001,7 @@ class ClubController extends Controller
     {
         $teamId = $fixture->clubTeamId();
 
-        if (!$teamId) {
+        if (! $teamId) {
             return [];
         }
 
@@ -922,7 +1009,7 @@ class ClubController extends Controller
             ->where('team_id', $teamId)
             ->map(function (Squad $squad) {
                 $player = $squad->player;
-                $fullName = trim(($player?->first_name ?? '') . ' ' . ($player?->last_name ?? ''));
+                $fullName = trim(($player?->first_name ?? '').' '.($player?->last_name ?? ''));
 
                 return [
                     'id' => $squad->id,
@@ -990,7 +1077,7 @@ class ClubController extends Controller
     {
         $rows = [];
 
-        if (!file_exists($path) || ($handle = fopen($path, 'r')) === false) {
+        if (! file_exists($path) || ($handle = fopen($path, 'r')) === false) {
             return $rows;
         }
 
@@ -999,6 +1086,7 @@ class ClubController extends Controller
         while (($row = fgetcsv($handle, 0, ',')) !== false) {
             if ($header === null) {
                 $header = array_map(fn ($column) => trim(strtolower($column)), $row);
+
                 continue;
             }
 
@@ -1025,9 +1113,10 @@ class ClubController extends Controller
             $rowNumber = $index + 2;
             $result = $this->buildFixtureFromRow($club, $row);
 
-            if (!$result['valid']) {
+            if (! $result['valid']) {
                 $failed++;
                 $errors[] = ['row' => $rowNumber, 'errors' => $result['errors']];
+
                 continue;
             }
 
@@ -1052,20 +1141,20 @@ class ClubController extends Controller
         $awayOpponentPlayers = $this->normalizePlayerNames($row['away_opponent_players'] ?? null);
         $genericOpponentPlayers = $this->normalizePlayerNames($row['opponent_players'] ?? null);
 
-        if (!empty($row['club_team_id'])) {
+        if (! empty($row['club_team_id'])) {
             $clubTeam = Team::where('id', (int) $row['club_team_id'])->where('club_id', $club->id)->first();
 
-            if (!$clubTeam) {
+            if (! $clubTeam) {
                 $errors[] = 'Invalid club_team_id';
             }
 
             $isHome = $this->normalizeBoolean($row['is_home'] ?? '1');
-            $opponentTeamId = !empty($row['opponent_team_id']) && is_numeric($row['opponent_team_id'])
+            $opponentTeamId = ! empty($row['opponent_team_id']) && is_numeric($row['opponent_team_id'])
                 ? (int) $row['opponent_team_id']
                 : null;
             $opponentName = trim((string) ($row['opponent_name'] ?? ''));
 
-            if (!$opponentTeamId && $opponentName === '') {
+            if (! $opponentTeamId && $opponentName === '') {
                 $errors[] = 'Opponent is required (opponent_team_id or opponent_name)';
             }
 
@@ -1090,11 +1179,11 @@ class ClubController extends Controller
             $hasHome = (bool) $homeTeam || $homeOpponentName;
             $hasAway = (bool) $awayTeam || $awayOpponentName;
 
-            if (!$hasHome) {
+            if (! $hasHome) {
                 $errors[] = 'Invalid home team (home_team_id, home_team_slug, or home_opponent_name required)';
             }
 
-            if (!$hasAway) {
+            if (! $hasAway) {
                 $errors[] = 'Invalid away team (away_team_id, away_team_slug, or away_opponent_name required)';
             }
 
@@ -1115,7 +1204,7 @@ class ClubController extends Controller
         $homeIsClub = $homeTeam && $clubTeamIds->contains($homeTeam->id);
         $awayIsClub = $awayTeam && $clubTeamIds->contains($awayTeam->id);
 
-        if (!$homeIsClub && !$awayIsClub) {
+        if (! $homeIsClub && ! $awayIsClub) {
             $errors[] = 'One side must be a squad from your club';
         }
 
@@ -1127,27 +1216,27 @@ class ClubController extends Controller
         $status = $row['status'] ?? 'draft';
         $isPublic = $this->normalizeBoolean($row['is_public'] ?? '1');
 
-        if (!$scheduledDate || !strtotime($scheduledDate)) {
+        if (! $scheduledDate || ! strtotime($scheduledDate)) {
             $errors[] = 'Invalid scheduled_date';
         }
 
-        if ($scheduledTime && !preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $scheduledTime)) {
+        if ($scheduledTime && ! preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $scheduledTime)) {
             $errors[] = 'Invalid scheduled_time';
         }
 
-        if (!in_array($matchType, ['t10', 't20', 'odi_50', 'odi_40', 'test', 'custom'], true)) {
+        if (! in_array($matchType, ['t10', 't20', 'odi_50', 'odi_40', 'test', 'custom'], true)) {
             $errors[] = 'Invalid match_type';
         }
 
-        if (!is_numeric($oversPerInnings) || $oversPerInnings < 1) {
+        if (! is_numeric($oversPerInnings) || $oversPerInnings < 1) {
             $errors[] = 'Invalid overs_per_innings';
         }
 
-        if (!in_array($ballType, ['leather', 'tennis', 'tape'], true)) {
+        if (! in_array($ballType, ['leather', 'tennis', 'tape'], true)) {
             $errors[] = 'Invalid ball_type';
         }
 
-        if (!in_array($status, ['draft', 'published', 'live', 'paused', 'completed', 'abandoned', 'cancelled', 'postponed'], true)) {
+        if (! in_array($status, ['draft', 'published', 'live', 'paused', 'completed', 'abandoned', 'cancelled', 'postponed'], true)) {
             $errors[] = 'Invalid status';
         }
 
@@ -1202,7 +1291,7 @@ class ClubController extends Controller
             }
         }
 
-        if (!is_array($value)) {
+        if (! is_array($value)) {
             return null;
         }
 
@@ -1228,20 +1317,20 @@ class ClubController extends Controller
         $idKey = "{$prefix}_team_id";
         $slugKey = "{$prefix}_team_slug";
 
-        if (!empty($row[$idKey]) && is_numeric($row[$idKey])) {
+        if (! empty($row[$idKey]) && is_numeric($row[$idKey])) {
             $query = Team::where('id', (int) $row[$idKey]);
 
-            if (!$allowExternal) {
+            if (! $allowExternal) {
                 $query->where('club_id', $club->id);
             }
 
             return $query->first();
         }
 
-        if (!empty($row[$slugKey])) {
+        if (! empty($row[$slugKey])) {
             $query = Team::where('slug', $row[$slugKey]);
 
-            if (!$allowExternal) {
+            if (! $allowExternal) {
                 $query->where('club_id', $club->id);
             }
 
@@ -1263,15 +1352,15 @@ class ClubController extends Controller
     private function storeUpload(Request $request, string $field, string $folder): string
     {
         $file = $request->file($field);
-        $storagePath = public_path('uploads/' . trim($folder, '/'));
+        $storagePath = public_path('uploads/'.trim($folder, '/'));
 
-        if (!file_exists($storagePath)) {
+        if (! file_exists($storagePath)) {
             mkdir($storagePath, 0755, true);
         }
 
-        $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+        $fileName = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
         $file->move($storagePath, $fileName);
 
-        return 'uploads/' . trim($folder, '/') . '/' . $fileName;
+        return 'uploads/'.trim($folder, '/').'/'.$fileName;
     }
 }
