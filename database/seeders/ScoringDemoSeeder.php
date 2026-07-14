@@ -566,7 +566,7 @@ class ScoringDemoSeeder extends Seeder
         bool $clubBatting, array $data
     ): BallEvent {
         if ($clubBatting) {
-            $players = User::whereHas('clubMembers', fn ($q) => $q->where('club_id', $innings->batting_team_id)->where('role', 'player'))
+            $players = User::whereHas('clubMemberships', fn ($q) => $q->where('club_id', $innings->batting_team_id)->where('role', 'player'))
                 ->where('is_active', true)->orderBy('id')->limit(11)->get();
 
             return BallEvent::create([
