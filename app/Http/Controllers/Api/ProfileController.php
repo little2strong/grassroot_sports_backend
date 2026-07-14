@@ -334,7 +334,6 @@ class ProfileController extends Controller
         }
 
         $club = $user->ownedClub()->first();
-        dd($club);
 
         if (!$club) {
             return response()->json(['message' => 'Club profile not found.'], 404);
@@ -342,7 +341,7 @@ class ProfileController extends Controller
 
         $team = Team::query()->find($teamId);
 
-        if (!$team || $team->club_id !== $club->id) {
+        if (!$team || $team->club_id != $club->id) {
             return response()->json(['message' => 'Squad not found for your club.'], 404);
         }
 
