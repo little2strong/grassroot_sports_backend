@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             VenueSeeder::class,
             ClubDemoSeeder::class,
+            ScoringDemoSeeder::class,
         ]);
 
         if ($this->command) {
