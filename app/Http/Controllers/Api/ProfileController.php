@@ -477,7 +477,8 @@ class ProfileController extends Controller
                     ->where('user_type', 'player')
                     ->where('is_active', true)),
             ],
-            'email' => 'required_without:player_id|nullable|email|max:255',
+            // 'email' => 'required_without:player_id|nullable|email|max:255',
+            'email' => 'nullable|email|max:255',
             'team_id' => [
                 'nullable',
                 'integer',
@@ -487,17 +488,18 @@ class ProfileController extends Controller
             'message' => 'nullable|string|max:1000',
             'expires_in_days' => 'nullable|integer|min:1|max:30',
         ]);
+        $player = User::find($validated['player_id']);
 
         $invitee = isset($validated['player_id'])
             ? User::query()->where('user_type', 'player')->find($validated['player_id'])
             : User::query()
-                ->where('email', $validated['email'])
+                ->where('email', $player->email)
                 ->where('user_type', 'player')
                 ->where('is_active', true)
                 ->first();
         // dd($invitee, $request->all());
 
-        $email = $invitee?->email ?? $validated['email'];
+        $email = $invitee?->email ?? $player->email;
 
         $alreadyMember = $invitee && $club->members()
             ->active()
