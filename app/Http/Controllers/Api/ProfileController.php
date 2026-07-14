@@ -334,6 +334,7 @@ class ProfileController extends Controller
         }
 
         $club = $user->ownedClub()->first();
+        dd($club);
 
         if (!$club) {
             return response()->json(['message' => 'Club profile not found.'], 404);
