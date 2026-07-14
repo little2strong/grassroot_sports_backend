@@ -170,7 +170,7 @@ class ScoringDemoSeeder extends Seeder
             return;
         }
 
-        $players = User::whereHas('clubMembers', fn ($q) => $q->where('club_id', $team->club_id)->where('role', 'player')->where('status', 'active'))
+        $players = User::whereHas('clubMemberships', fn ($q) => $q->where('club_id', $team->club_id)->where('role', 'player')->where('status', 'active'))
             ->where('is_active', true)
             ->limit(11)
             ->orderBy('id')
