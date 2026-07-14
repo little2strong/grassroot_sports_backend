@@ -709,11 +709,11 @@ class ScoringDemoSeeder extends Seeder
             'fixture_id' => $fixture->id, 'match_id' => $match->id,
             'innings_one' => [
                 'team_name' => $clubTeam->short_name, 'runs' => $innings1->runs,
-                'wickets' => $innings1->wickets, 'overs' => $innings1->overs->toFloat(),
+                'wickets' => $innings1->wickets, 'overs' => (float) $innings1->overs,
             ],
             'innings_two' => [
                 'team_name' => $fixture->away_opponent_name, 'runs' => $innings2->runs,
-                'wickets' => $innings2->wickets, 'overs' => $innings2->overs->toFloat(),
+                'wickets' => $innings2->wickets, 'overs' => (float) $innings2->overs,
             ],
             'key_stats' => [
                 'highest_score' => $topScorer1 ? [
