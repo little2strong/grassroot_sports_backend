@@ -49,7 +49,7 @@ class PlayerController extends Controller
         }
 
         $players = $query->orderBy($sortBy, $sortDir)
-            ->paginate($request->integer('per_page', 15))
+            ->paginate(10)
             ->withQueryString();
 
         $summary = [

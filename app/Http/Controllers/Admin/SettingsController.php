@@ -27,11 +27,8 @@ class SettingsController extends Controller
 
     public function __construct(Setting $settings)
     {
-        $this->settings     = $settings;
-        $this->middleware(function ($request, $next) {
-            $this->user = Auth::guard('admin')->user();
-            return $next($request);
-        });
+        $this->settings = $settings;
+        $this->user = Auth::guard('admin')->user();
     }
 
     // Setting
