@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppNotification;
 use App\Models\Availability;
 use App\Models\ClubMember;
 use App\Models\Fixture;
@@ -169,6 +170,26 @@ class PlayerController extends Controller
                 'responded_at' => now(),
             ]
         );
+
+        $club = $fixture->club;
+
+        AppNotification::create([
+            'user_id' => $club->owner_id,
+            'type' => AppNotification::TYPE_AVAILABILITY_REQUESTED,
+            'title' => 'Availability update',
+            'message' => $user->full_name . ' has responded ' . $validated['status'] . ' for ' . $fixture->home_display_name . ' vs ' . $fixture->away_display_name . '.',
+            'notifiable_type' => Availability::class,
+            'notifiable_id' => $availability->id,
+            'data' => [
+                'availability_id' => $availability->id,
+                'fixture_id' => $fixture->id,
+                'club_id' => $club->id,
+                'club_name' => $club->name,
+                'player_id' => $user->id,
+                'player_name' => $user->full_name,
+                'status' => $validated['status'],
+            ],
+        ]);
 
         return response()->json([
             'message' => 'Availability saved successfully.',

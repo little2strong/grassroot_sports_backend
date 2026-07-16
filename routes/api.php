@@ -43,6 +43,10 @@ Route::middleware('auth:sanctum')->prefix('profile')->group(function () {
     Route::post('/club/invitations', [ProfileController::class, 'invitePlayerToClub']);
     Route::post('/club/squads', [ProfileController::class, 'createSquad']);
     Route::post('/club/squads/{teamId}/players', [ProfileController::class, 'addPlayerToSquad']);
+
+    Route::get('/notifications', [ProfileController::class, 'listNotifications']);
+    Route::post('/notifications/mark-all-as-read', [ProfileController::class, 'markAllNotificationsAsRead']);
+    Route::post('/notifications/{notificationId}/read', [ProfileController::class, 'markNotificationAsRead']);
 });
 
 Route::middleware('auth:sanctum')->prefix('player')->group(function () {

@@ -83,6 +83,7 @@ class BattingScore extends Model
 
     public function getDismissalTextAttribute(): string
     {
+        if (!$this->has_batted) return "didn't bat";
         if (!$this->is_out && $this->dismissal_type === 'not_out') return 'not out';
         if (!$this->is_out && in_array($this->dismissal_type, ['retired_hurt', 'absent_hurt'])) {
             return str_replace('_', ' ', $this->dismissal_type);

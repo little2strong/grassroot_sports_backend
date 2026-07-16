@@ -150,11 +150,14 @@
                         </table>
                     </div>
 
-                    @if($inn->wickets->isNotEmpty())
+                    @php
+                            $wickets = $inn->wickets instanceof \Illuminate\Support\Collection ? $inn->wickets : collect();
+                        @endphp
+                        @if($wickets->isNotEmpty())
                         <div class="mt-3">
                             <div class="small text-muted mb-2 fw-semibold">Fall of wickets</div>
                             <div class="d-flex flex-wrap gap-2">
-                                @foreach($inn->wickets as $w)
+                                @foreach($wickets as $w)
                                     <span class="club-badge muted">
                                         {{ $w->runs_at_dismissal }} — {{ $w->dismissedBatter?->name ?? $w->external_dismissed_batter_name ?? 'Batter' }}
                                         @if($w->ballEvent)

@@ -428,6 +428,21 @@ class ProfileController extends Controller
                     'joined_at' => now(),
                 ]
             );
+
+            AppNotification::create([
+                'user_id' => $invitee->id,
+                'type' => AppNotification::TYPE_SQUAD_SELECTED,
+                'title' => 'Added to squad',
+                'message' => 'You have been added to ' . $team->name . ' by ' . $club->name . '.',
+                'notifiable_type' => TeamMember::class,
+                'notifiable_id' => TeamMember::where('team_id', $team->id)->where('user_id', $invitee->id)->first()->id,
+                'data' => [
+                    'team_id' => $team->id,
+                    'team_name' => $team->name,
+                    'club_id' => $club->id,
+                    'club_name' => $club->name,
+                ],
+            ]);
         });
 
         return response()->json([
@@ -638,6 +653,22 @@ class ProfileController extends Controller
         $invitation->accept($user->id);
         $invitation->refresh()->load(['club', 'team', 'invitedBy', 'invitedUser']);
 
+        AppNotification::create([
+            'user_id' => $invitation->invited_by,
+            'type' => AppNotification::TYPE_INVITATION_ACCEPTED,
+            'title' => 'Invitation accepted',
+            'message' => $user->full_name . ' accepted your invitation to join ' . $invitation->club->name . '.',
+            'notifiable_type' => Invitation::class,
+            'notifiable_id' => $invitation->id,
+            'data' => [
+                'invitation_id' => $invitation->id,
+                'club_id' => $invitation->club_id,
+                'club_name' => $invitation->club->name,
+                'player_id' => $user->id,
+                'player_name' => $user->full_name,
+            ],
+        ]);
+
         return response()->json([
             'message' => 'Invitation accepted successfully.',
             'data' => [
@@ -670,6 +701,20 @@ class ProfileController extends Controller
 
         $invitation->reject();
         $invitation->refresh()->load(['club', 'team', 'invitedBy', 'invitedUser']);
+
+        AppNotification::create([
+            'user_id' => $invitation->invited_by,
+            'type' => AppNotification::TYPE_INVITATION_REJECTED,
+            'title' => 'Invitation rejected',
+            'message' => $invitation->invited_email . ' rejected your invitation to join ' . $invitation->club->name . '.',
+            'notifiable_type' => Invitation::class,
+            'notifiable_id' => $invitation->id,
+            'data' => [
+                'invitation_id' => $invitation->id,
+                'club_id' => $invitation->club_id,
+                'club_name' => $invitation->club->name,
+            ],
+        ]);
 
         return response()->json([
             'message' => 'Invitation rejected successfully.',
@@ -903,6 +948,78 @@ class ProfileController extends Controller
         ];
     }
 
+    public function listNotifications(Request $request): JsonResponse
+    {
+        $user = auth('sanctum')->user();
+
+        $validated = $request->validate([
+            'unread_only' => 'sometimes|boolean',
+            'type' => 'sometimes|string',
+            'per_page' => 'sometimes|integer|min:1|max:100',
+        ]);
+
+        $query = $user->appNotifications()
+            ->orderByDesc('created_at');
+
+        if ($request->boolean('unread_only')) {
+            $query->where('is_read', false);
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $validated['type']);
+        }
+
+        $notifications = $query->paginate($validated['per_page'] ?? 15);
+
+        return response()->json([
+            'message' => 'Notifications fetched successfully.',
+            'data' => [
+                'notifications' => $notifications->through(fn ($notification) => $this->formatNotification($notification)),
+                'unread_count' => $user->appNotifications()->where('is_read', false)->count(),
+            ],
+        ]);
+    }
+
+    public function markNotificationAsRead(Request $request, int $notificationId): JsonResponse
+    {
+        $user = auth('sanctum')->user();
+
+        $notification = $user->appNotifications()
+            ->where('id', $notificationId)
+            ->first();
+
+        if (!$notification) {
+            return response()->json(['message' => 'Notification not found.'], 404);
+        }
+
+        if (!$notification->is_read) {
+            $notification->markAsRead();
+        }
+
+        return response()->json([
+            'message' => 'Notification marked as read.',
+            'data' => [
+                'notification' => $this->formatNotification($notification),
+            ],
+        ]);
+    }
+
+    public function markAllNotificationsAsRead(Request $request): JsonResponse
+    {
+        $user = auth('sanctum')->user();
+
+        $user->appNotifications()
+            ->where('is_read', false)
+            ->update(['is_read' => true, 'read_at' => now()]);
+
+        return response()->json([
+            'message' => 'All notifications marked as read.',
+            'data' => [
+                'unread_count' => 0,
+            ],
+        ]);
+    }
+
     private function resolveClub(string $club): ?Club
     {
         return Club::query()
@@ -932,5 +1049,19 @@ class ProfileController extends Controller
         }
 
         return asset($path);
+    }
+
+    private function formatNotification(AppNotification $notification): array
+    {
+        return [
+            'id' => $notification->id,
+            'type' => $notification->type,
+            'title' => $notification->title,
+            'message' => $notification->message,
+            'is_read' => (bool) $notification->is_read,
+            'read_at' => optional($notification->read_at)->toIso8601String(),
+            'created_at' => optional($notification->created_at)->toIso8601String(),
+            'data' => $notification->data,
+        ];
     }
 }

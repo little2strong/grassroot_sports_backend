@@ -50,6 +50,7 @@
                                 <th>Type</th>
                                 <th>Status</th>
                                 <th>Public</th>
+                                <th>Fees</th>
                                 <th>Scorer</th>
                                 <th class="text-end">Actions</th>
                             </tr>
@@ -79,6 +80,21 @@
                                     <span class="club-badge {{ $fixture->is_public ? 'success' : 'muted' }}">
                                         {{ $fixture->is_public ? 'Yes' : 'No' }}
                                     </span>
+                                </td>
+                                <td class="small">
+                                    @php
+                                        $totalFees = $fixture->matchFees->sum('amount');
+                                        $unpaidCount = $fixture->matchFees->whereNotIn('status', ['verified', 'waived'])->count();
+                                        $totalPlayers = $fixture->matchFees->count();
+                                    @endphp
+                                    @if($totalFees > 0 || $unpaidCount > 0)
+                                        <div class="fw-medium">{{ $totalFees > 0 ? '$' . number_format($totalFees, 2) : '$0.00' }}</div>
+                                        @if($unpaidCount > 0)
+                                            <span class="text-warning small">{{ $unpaidCount }} unpaid</span>
+                                        @endif
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
                                 </td>
                                 <td class="small">
                                     @if($fixture->scorer)
@@ -141,6 +157,18 @@
                             <span class="club-badge muted">{{ $fixture->match_type_label ?? $fixture->match_type }}</span>
                             <span class="club-badge {{ in_array($fixture->status, ['live','paused']) ? 'danger' : 'muted' }}">{{ ucfirst($fixture->status) }}</span>
                         </div>
+                        @php
+                            $totalFees = $fixture->matchFees->sum('amount');
+                            $unpaidCount = $fixture->matchFees->whereNotIn('status', ['verified', 'waived'])->count();
+                        @endphp
+                        @if($totalFees > 0 || $unpaidCount > 0)
+                        <div class="small text-muted mb-2">
+                            <strong>Fees:</strong> ${{ $totalFees > 0 ? number_format($totalFees, 2) : '0.00' }}
+                            @if($unpaidCount > 0)
+                                <span class="text-warning">, {{ $unpaidCount }} unpaid</span>
+                            @endif
+                        </div>
+                        @endif
                         <div class="small text-muted mb-2">
                             <strong>Scorer:</strong>
                             {{ $fixture->scorer?->full_name ?: $fixture->scorer?->email ?: '—' }}

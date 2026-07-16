@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Club;
 
 use App\Http\Controllers\Club\Concerns\ResolvesClub;
 use App\Http\Controllers\Controller;
+use App\Models\AppNotification;
 use App\Models\Availability;
 use App\Models\ClubMember;
 use App\Models\Fixture;
@@ -25,7 +26,7 @@ class FixtureController extends Controller
         $club = $this->resolveClub($request);
 
         $fixtures = Fixture::forClub($club->id)
-            ->with(['homeTeam', 'awayTeam', 'venue', 'scorer'])
+            ->with(['homeTeam', 'awayTeam', 'venue', 'scorer', 'matchFees.player'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->orderByDesc('scheduled_date')
             ->orderByDesc('scheduled_time')
@@ -79,12 +80,35 @@ class FixtureController extends Controller
         $validated = $this->validateFixture($request, $club);
         $status = $validated['status'] ?? 'draft';
 
-        Fixture::create(array_merge($this->buildFixturePayload($validated), [
+        $fixture = Fixture::create(array_merge($this->buildFixturePayload($validated), [
             'club_id' => $club->id,
             'created_by' => $request->user()->id,
             'status' => $status,
             'published_at' => $status === 'published' ? now() : null,
         ]));
+
+        $members = ClubMember::where('club_id', $club->id)
+            ->where('role', 'player')
+            ->where('status', 'active')
+            ->pluck('user_id');
+
+        foreach ($members as $userId) {
+            AppNotification::create([
+                'user_id' => $userId,
+                'type' => AppNotification::TYPE_FIXTURE_PUBLISHED,
+                'title' => 'New fixture scheduled',
+                'message' => $fixture->home_display_name . ' vs ' . $fixture->away_display_name . ' is scheduled.',
+                'notifiable_type' => Fixture::class,
+                'notifiable_id' => $fixture->id,
+                'data' => [
+                    'fixture_id' => $fixture->id,
+                    'club_id' => $club->id,
+                    'club_name' => $club->name,
+                    'match_type' => $fixture->match_type,
+                    'scheduled_date' => $fixture->scheduled_date?->format('Y-m-d'),
+                ],
+            ]);
+        }
 
         return redirect()
             ->route('club.fixtures.index')
@@ -410,6 +434,16 @@ class FixtureController extends Controller
         $team = $teamId
             ? $club->teams()->where('id', $teamId)->first()
             : null;
+
+        $members = collect();
+        if ($team) {
+            $members = TeamMember::query()
+                ->where('team_id', $team->id)
+                ->where('is_active', true)
+                ->with('user.playerProfile')
+                ->orderBy('jersey_number')
+                ->get();
+        }
 
         $validated = $request->validate([
             'players' => 'sometimes|array',

@@ -18,6 +18,11 @@
             <h6 class="mb-0">Collect Fee</h6>
         </div>
         <div class="club-card-body padded">
+            @php
+                $members = $members ?? collect();
+                $existingFees = $existingFees ?? collect();
+            @endphp
+
             @if($existingFees->isNotEmpty())
                 <div class="mb-4">
                     <h6 class="mb-3">Collected Fees</h6>

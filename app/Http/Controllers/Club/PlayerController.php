@@ -57,6 +57,19 @@ class PlayerController extends Controller
             ->limit(10)
             ->get();
 
+        $playerClubs = \App\Models\ClubMember::where('user_id', $player->id)
+            ->with('club')
+            ->get()
+            ->map(function ($member) {
+                return [
+                    'club' => $member->club,
+                    'role' => $member->role,
+                    'status' => $member->status,
+                    'joined_at' => $member->joined_at,
+                ];
+            })
+            ->values();
+
         $stats = [
             'total_matches' => $player->playerProfile?->total_matches ?? 0,
             'total_runs' => $player->playerProfile?->total_runs ?? 0,
@@ -74,6 +87,7 @@ class PlayerController extends Controller
             'membership' => $membership,
             'recentAvailability' => $recentAvailability,
             'stats' => $stats,
+            'playerClubs' => $playerClubs,
         ]);
     }
 }

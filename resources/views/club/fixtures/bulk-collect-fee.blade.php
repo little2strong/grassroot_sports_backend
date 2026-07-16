@@ -18,6 +18,12 @@
             <h6 class="mb-0">Bulk Collect Fee</h6>
         </div>
         <div class="club-card-body padded">
+            @php
+                $members = $members ?? collect();
+                $existingFees = $existingFees ?? collect();
+                $existingFeesByPlayer = $existingFeesByPlayer ?? collect();
+            @endphp
+
             @if($existingFees->isNotEmpty())
                 <div class="mb-4">
                     <h6 class="mb-3">Already Collected Fees</h6>
@@ -76,17 +82,18 @@
                             @php
                                 $playerId = $member->user->id;
                                 $playerOldAmount = old("players.$playerId.amount");
+                                $hasExistingFee = $existingFeesByPlayer->has($playerId);
                             @endphp
                             <tr>
                                 <td>
                                     <input type="checkbox" name="players[{{ $playerId }}][player_id]" value="{{ $playerId }}" class="player-checkbox"
-                                        @if($existingFeesByPlayer->has($playerId)) checked @disabled(true) @endif>
+                                        @if($hasExistingFee) checked @disabled(true) @endif>
                                 </td>
                                 <td class="fw-medium">{{ $member->user->name }}</td>
                                 <td>
                                     <input type="number" step="0.01" name="players[{{ $playerId }}][amount]" value="{{ $playerOldAmount ?: '' }}"
                                         class="form-control w-50 all-amount"
-                                        @disabled($existingFeesByPlayer->has($playerId))>
+                                        @disabled($hasExistingFee)>
                                 </td>
                             </tr>
                             @endforeach

@@ -90,6 +90,8 @@ class AppNotification extends Model
     public const TYPE_MATCH_COMPLETED = 'match_completed';
     public const TYPE_MATCH_RESULT = 'match_result';
     public const TYPE_INVITATION_RECEIVED = 'invitation_received';
+    public const TYPE_INVITATION_ACCEPTED = 'invitation_accepted';
+    public const TYPE_INVITATION_REJECTED = 'invitation_rejected';
     public const TYPE_SHORTAGE_REQUEST = 'shortage_request';
     public const TYPE_SHORTAGE_FULFILLED = 'shortage_fulfilled';
     public const TYPE_PLAYER_UNAVAILABLE = 'player_unavailable';
@@ -106,6 +108,8 @@ class AppNotification extends Model
             self::TYPE_MATCH_COMPLETED,
             self::TYPE_MATCH_RESULT,
             self::TYPE_INVITATION_RECEIVED,
+            self::TYPE_INVITATION_ACCEPTED,
+            self::TYPE_INVITATION_REJECTED,
             self::TYPE_SHORTAGE_REQUEST,
             self::TYPE_SHORTAGE_FULFILLED,
             self::TYPE_PLAYER_UNAVAILABLE,

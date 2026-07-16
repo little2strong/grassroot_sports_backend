@@ -38,6 +38,19 @@
                         <span class="club-badge {{ $membership->status === 'active' ? 'success' : 'muted' }}">{{ ucfirst($membership->status) }}</span>
                     </div>
 
+                    @if($playerClubs && $playerClubs->count() > 1)
+                        <div class="mb-3">
+                            <h6 class="small text-muted mb-2">Other Clubs</h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach($playerClubs as $playerClub)
+                                    @if($playerClub['club'] && $playerClub['club']->id !== $club->id)
+                                        <span class="club-badge muted">{{ $playerClub['club']->name }}</span>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
                     <table class="table table-sm mb-0">
                         <tr>
                             <td class="text-muted small">Primary role</td>

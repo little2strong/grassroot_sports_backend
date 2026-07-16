@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Club;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Club\Concerns\ResolvesClub;
+use App\Models\AppNotification;
 use App\Models\Fixture;
 use App\Models\Team;
 use App\Models\TeamMember;
@@ -203,6 +204,21 @@ class SquadController extends Controller
                 'joined_at' => now(),
             ]
         );
+
+        AppNotification::create([
+            'user_id' => $player->id,
+            'type' => AppNotification::TYPE_SQUAD_SELECTED,
+            'title' => 'Added to squad',
+            'message' => 'You have been added to ' . $squad->name . ' by ' . $club->name . '.',
+            'notifiable_type' => TeamMember::class,
+            'notifiable_id' => TeamMember::where('team_id', $squad->id)->where('user_id', $player->id)->first()->id,
+            'data' => [
+                'team_id' => $squad->id,
+                'team_name' => $squad->name,
+                'club_id' => $club->id,
+                'club_name' => $club->name,
+            ],
+        ]);
 
         return redirect()
             ->route('club.squads.players', $squad)

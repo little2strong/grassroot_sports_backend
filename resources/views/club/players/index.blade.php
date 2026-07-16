@@ -42,6 +42,7 @@
                                 <th>Role</th>
                                 <th>Status</th>
                                 <th>Joined</th>
+                                <th class="text-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -65,6 +66,11 @@
                                     </span>
                                 </td>
                                 <td class="small text-muted">{{ $member->joined_at?->format('d M Y') ?? '—' }}</td>
+                                <td class="text-end">
+                                    <a href="{{ route('club.players.show', $user) }}" class="btn btn-sm btn-light border" title="View player">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -87,6 +93,9 @@
                             <span>{{ $user?->email }}</span>
                             <span class="club-badge muted">{{ ucfirst($member->role) }}</span>
                             <span class="club-badge {{ $member->status === 'active' ? 'success' : 'muted' }}">{{ ucfirst($member->status) }}</span>
+                            <a href="{{ route('club.players.show', $user) }}" class="btn btn-sm btn-light border" title="View player">
+                                <i class="fas fa-eye"></i>
+                            </a>
                         </div>
                     </div>
                     @endforeach
