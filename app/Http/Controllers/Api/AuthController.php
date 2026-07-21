@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PasswordResetMail;
+use Throwable;
 
 
 class AuthController extends Controller
@@ -81,29 +82,37 @@ class AuthController extends Controller
             'email' => 'required|email',
         ]);
 
-        $user = User::where('email', $validated['email'])->first();
+        try {
+            $user = User::where('email', $validated['email'])->first();
 
-        if (!$user) {
+            if ($user) {
+                $token = Str::random(64);
+
+                $user->update([
+                    'password_reset_token' => hash('sha256', $token),
+                    'password_reset_expires_at' => now()->addHours(1),
+                ]);
+
+                Mail::to($user->email)->send(new PasswordResetMail(
+                    resetUrl: url('/reset-password?token=' . $token . '&email=' . $user->email),
+                    expiresIn: 60
+                ));
+            }
+
             return response()->json([
-                'message' => 'If the email exists, a reset link has been sent.',
+                'message' => 'If the email exists in our system, a password reset link has been sent to your inbox.',
+                'data' => [
+                    'email' => $validated['email'],
+                ],
             ], 200);
+        } catch (Throwable $e) {
+            return response()->json([
+                'message' => 'An error occurred while processing your request. Please try again.',
+                'errors' => [
+                    'email' => ['Failed to send reset email.'],
+                ],
+            ], 500);
         }
-
-        $token = Str::random(64);
-
-        $user->update([
-            'password_reset_token' => hash('sha256', $token),
-            'password_reset_expires_at' => now()->addHours(1),
-        ]);
-
-        Mail::to($user->email)->send(new PasswordResetMail(
-            resetUrl: url('/reset-password?token=' . $token . '&email=' . $user->email),
-            expiresIn: 60
-        ));
-
-        return response()->json([
-            'message' => 'If the email exists, a reset link has been sent.',
-        ]);
     }
 
     public function resetPassword(Request $request): JsonResponse
@@ -114,28 +123,40 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $user = User::where('email', $validated['email'])->first();
+        try {
+            $user = User::where('email', $validated['email'])->first();
 
-        if (!$user || !hash_equals(hash('sha256', $validated['token']), $user->password_reset_token)) {
+            if (!$user || !hash_equals(hash('sha256', $validated['token']), $user->password_reset_token)) {
+                return response()->json([
+                    'message' => 'Invalid or expired token.',
+                ], 422);
+            }
+
+            if ($user->password_reset_expires_at && $user->password_reset_expires_at->isPast()) {
+                return response()->json([
+                    'message' => 'Token has expired.',
+                ], 422);
+            }
+
+            $user->update([
+                'password' => Hash::make($validated['password']),
+                'password_reset_token' => null,
+                'password_reset_expires_at' => null,
+            ]);
+
             return response()->json([
-                'message' => 'Invalid or expired token.',
-            ], 422);
-        }
-
-        if ($user->password_reset_expires_at && $user->password_reset_expires_at->isPast()) {
+                'message' => 'Password has been reset successfully.',
+                'data' => [
+                    'email' => $user->email,
+                ],
+            ]);
+        } catch (Throwable $e) {
             return response()->json([
-                'message' => 'Token has expired.',
-            ], 422);
+                'message' => 'An error occurred while resetting your password. Please try again.',
+                'errors' => [
+                    'password' => ['Failed to reset password.'],
+                ],
+            ], 500);
         }
-
-        $user->update([
-            'password' => Hash::make($validated['password']),
-            'password_reset_token' => null,
-            'password_reset_expires_at' => null,
-        ]);
-
-        return response()->json([
-            'message' => 'Password reset successfully.',
-        ]);
     }
 }
