@@ -110,4 +110,53 @@ class ScoringController extends Controller
             'innings' => $innings,
         ]);
     }
+
+    public function showPublic(Request $request, string $slug): View
+    {
+        $fixture = Fixture::where('is_public', true)
+            ->where('status', '!=', 'draft')
+            ->with([
+                'homeTeam',
+                'awayTeam',
+                'venue',
+                'winner',
+                'manOfTheMatch',
+                'match.firstInnings.battingScores.player',
+                'match.firstInnings.bowlingFigures.bowler',
+                'match.firstInnings.wickets.ballEvent',
+                'match.secondInnings.battingScores.player',
+                'match.secondInnings.bowlingFigures.bowler',
+                'match.secondInnings.wickets.ballEvent',
+                'summary',
+            ])
+            ->where('public_share_slug', $slug)
+            ->firstOrFail();
+
+        $match = $fixture->match;
+
+        $innings = collect();
+        if ($match) {
+            $innings = Innings::query()
+                ->where('match_id', $match->id)
+                ->with([
+                    'battingTeam',
+                    'bowlingTeam',
+                    'battingScores.player',
+                    'bowlingFigures.bowler',
+                    'wickets.bowler',
+                    'wickets.fielderOne',
+                    'ballEvents',
+                    'overSummaries.bowler',
+                ])
+                ->orderBy('innings_number')
+                ->get();
+        }
+
+        return view('club.scoring.show-public', [
+            'title' => 'Live Score',
+            'fixture' => $fixture,
+            'match' => $match,
+            'innings' => $innings,
+        ]);
+    }
 }

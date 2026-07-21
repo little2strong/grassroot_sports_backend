@@ -74,3 +74,6 @@ Route::prefix('club')->name('club.')->group(function () {
         Route::get('/scoring/matches/{fixture}', [ScoringController::class, 'show'])->name('scoring.show');
     });
 });
+
+Route::get('/match/{slug}', [ScoringController::class, 'showPublic'])->name('public.score');
+Route::get('/match/{slug}/score', [ScoringController::class, 'showPublic'])->name('public.score.detail');
