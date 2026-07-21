@@ -91,11 +91,16 @@ Route::prefix('auth')->name('auth.')->group(function () {
     // Step 1: Basic info (first name, last name, email, phone, password)
     Route::post('/register', [RegisterController::class, 'registerStep1']);
     Route::post('/register/verify-otp', [RegisterController::class, 'verifyEmailOtp']);
+    Route::post('/register/resend-otp', [RegisterController::class, 'resendOtp']);
 
     // Step 2: Onboarding (choose club or player, submit club/team data)
     Route::post('/register/onboarding', [RegisterController::class, 'registerStep2']);
 
     // Login (same as before)
     Route::post('/login', [AuthController::class, 'login']);
+
+    // Password reset
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 });

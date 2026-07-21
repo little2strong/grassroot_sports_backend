@@ -125,6 +125,56 @@ class RegisterController extends Controller
         ]);
     }
 
+    public function resendOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'token' => 'required|string',
+        ]);
+
+        $decoded = json_decode(decrypt($validated['token']), true);
+
+        if (!$decoded || empty($decoded['user_id'])) {
+            throw ValidationException::withMessages([
+                'token' => 'Invalid or expired token.',
+            ]);
+        }
+
+        $user = User::query()->find((int) $decoded['user_id']);
+
+        if (!$user) {
+            return response()->json(['message' => 'Account not found.'], 404);
+        }
+
+        if ($user->email_verified_at) {
+            return response()->json([
+                'message' => 'Email already verified.',
+            ]);
+        }
+
+        $expiresInMinutes = 10;
+        $otp = (string) random_int(100000, 999999);
+
+        $user->update([
+            'email_otp_hash' => Hash::make($otp),
+            'email_otp_expires_at' => now()->addMinutes($expiresInMinutes),
+        ]);
+
+        Mail::to($user->email)->send(new EmailOtpMail(
+            otp: $otp,
+            expiresInMinutes: $expiresInMinutes,
+            purpose: 'Verify your email'
+        ));
+
+        return response()->json([
+            'message' => 'OTP resent to your email.',
+            'data' => [
+                'token' => encrypt(json_encode([
+                    'user_id' => $user->id,
+                ])),
+            ],
+        ]);
+    }
+
     /**
      * STEP 2: Onboarding — Create Club or Player
      *

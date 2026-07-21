@@ -7,6 +7,10 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PasswordResetMail;
 
 
 class AuthController extends Controller
@@ -68,6 +72,70 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Logged out successfully.',
+        ]);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'If the email exists, a reset link has been sent.',
+            ], 200);
+        }
+
+        $token = Str::random(64);
+
+        $user->update([
+            'password_reset_token' => hash('sha256', $token),
+            'password_reset_expires_at' => now()->addHours(1),
+        ]);
+
+        Mail::to($user->email)->send(new PasswordResetMail(
+            resetUrl: url('/reset-password?token=' . $token . '&email=' . $user->email),
+            expiresIn: 60
+        ));
+
+        return response()->json([
+            'message' => 'If the email exists, a reset link has been sent.',
+        ]);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+
+        if (!$user || !hash_equals(hash('sha256', $validated['token']), $user->password_reset_token)) {
+            return response()->json([
+                'message' => 'Invalid or expired token.',
+            ], 422);
+        }
+
+        if ($user->password_reset_expires_at && $user->password_reset_expires_at->isPast()) {
+            return response()->json([
+                'message' => 'Token has expired.',
+            ], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($validated['password']),
+            'password_reset_token' => null,
+            'password_reset_expires_at' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Password reset successfully.',
         ]);
     }
 }
