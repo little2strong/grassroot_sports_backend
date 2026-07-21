@@ -13,7 +13,7 @@
 <main class="club-page">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div class="min-w-0">
-            <p class="text-muted small mb-1">{{ $isPublic ? 'Live Score' : 'Scorecard' }}</p>
+            <p class="text-muted small mb-1">Scorecard</p>
             <h5 class="mb-0 text-truncate">
                 {{ $fixture->home_display_name }} vs {{ $fixture->away_display_name }}
             </h5>
@@ -23,12 +23,10 @@
             </p>
         </div>
         <div class="d-flex gap-2">
-            @if(!$isPublic)
-                <a href="{{ route('club.scoring.matches') }}" class="btn btn-sm btn-light border">
-                    <i class="fas fa-arrow-left me-1"></i> Back to matches
-                </a>
-            @endif
-            @if($fixture->is_public && $fixture->public_share_slug && !$isPublic)
+            <a href="{{ route('club.scoring.matches') }}" class="btn btn-sm btn-light border">
+                <i class="fas fa-arrow-left me-1"></i> Back to matches
+            </a>
+            @if($fixture->is_public && $fixture->public_share_slug)
                 <a href="{{ $fixture->public_url }}" target="_blank" class="btn btn-sm btn-club-primary">
                     <i class="fas fa-external-link-alt me-1"></i> Public page
                 </a>
