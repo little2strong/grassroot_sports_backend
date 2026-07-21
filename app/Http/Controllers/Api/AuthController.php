@@ -6,11 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\PasswordResetMail;
+use App\Mail\EmailOtpMail;
 use Throwable;
 
 
@@ -67,7 +64,7 @@ class AuthController extends Controller
         ]);
     }
 
-    public function logout(Request $request): JsonResponse
+    public function logout(Request $request)
     {
         auth('sanctum')->user()?->currentAccessToken()?->delete();
 
@@ -76,7 +73,7 @@ class AuthController extends Controller
         ]);
     }
 
-    public function forgotPassword(Request $request): JsonResponse
+    public function forgotPassword(Request $request)
     {
         $validated = $request->validate([
             'email' => 'required|email',
@@ -94,20 +91,22 @@ class AuthController extends Controller
                 ], 404);
             }
 
-            $token = Str::random(64);
+            $otp = (string) random_int(100000, 999999);
+            $expiresInMinutes = 15;
 
             $user->update([
-                'password_reset_token' => hash('sha256', $token),
-                'password_reset_expires_at' => now()->addHours(1),
+                'password_reset_token' => Hash::make($otp),
+                'password_reset_expires_at' => now()->addMinutes($expiresInMinutes),
             ]);
 
-            Mail::to($user->email)->send(new PasswordResetMail(
-                resetUrl: url('/reset-password?token=' . $token . '&email=' . $user->email),
-                expiresIn: 60
+            Mail::to($user->email)->send(new EmailOtpMail(
+                otp: $otp,
+                expiresInMinutes: $expiresInMinutes,
+                purpose: 'Password Reset'
             ));
 
             return response()->json([
-                'message' => 'Password reset link has been sent to your email.',
+                'message' => 'Password reset OTP has been sent to your email.',
                 'data' => [
                     'email' => $user->email,
                 ],
@@ -116,32 +115,47 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'An error occurred while processing your request. Please try again.',
                 'errors' => [
-                    'email' => ['Failed to send reset email.'],
+                    'email' => ['Failed to send reset OTP.'],
                 ],
             ], 500);
         }
     }
 
-    public function resetPassword(Request $request): JsonResponse
+    public function resetPassword(Request $request)
     {
         $validated = $request->validate([
             'email' => 'required|email',
-            'token' => 'required|string',
+            'otp' => 'required|string|min:4|max:10',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
         try {
             $user = User::where('email', $validated['email'])->first();
 
-            if (!$user || !hash_equals(hash('sha256', $validated['token']), $user->password_reset_token)) {
+            if (!$user) {
                 return response()->json([
-                    'message' => 'Invalid or expired token.',
+                    'message' => 'No account found with this email address.',
+                    'errors' => [
+                        'email' => ['Email not registered in our system.'],
+                    ],
+                ], 404);
+            }
+
+            if (!$user->password_reset_expires_at || $user->password_reset_expires_at->isPast()) {
+                return response()->json([
+                    'message' => 'OTP expired. Please request a new OTP.',
+                    'errors' => [
+                        'otp' => ['OTP has expired.'],
+                    ],
                 ], 422);
             }
 
-            if ($user->password_reset_expires_at && $user->password_reset_expires_at->isPast()) {
+            if (!$user->password_reset_token || !Hash::check($validated['otp'], $user->password_reset_token)) {
                 return response()->json([
-                    'message' => 'Token has expired.',
+                    'message' => 'Invalid OTP.',
+                    'errors' => [
+                        'otp' => ['Incorrect OTP.'],
+                    ],
                 ], 422);
             }
 
@@ -156,7 +170,7 @@ class AuthController extends Controller
                 'data' => [
                     'email' => $user->email,
                 ],
-            ]);
+            ], 200);
         } catch (Throwable $e) {
             return response()->json([
                 'message' => 'An error occurred while resetting your password. Please try again.',
