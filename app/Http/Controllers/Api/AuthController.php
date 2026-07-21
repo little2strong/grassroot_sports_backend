@@ -85,24 +85,31 @@ class AuthController extends Controller
         try {
             $user = User::where('email', $validated['email'])->first();
 
-            if ($user) {
-                $token = Str::random(64);
-
-                $user->update([
-                    'password_reset_token' => hash('sha256', $token),
-                    'password_reset_expires_at' => now()->addHours(1),
-                ]);
-
-                Mail::to($user->email)->send(new PasswordResetMail(
-                    resetUrl: url('/reset-password?token=' . $token . '&email=' . $user->email),
-                    expiresIn: 60
-                ));
+            if (!$user) {
+                return response()->json([
+                    'message' => 'No account found with this email address.',
+                    'errors' => [
+                        'email' => ['Email not registered in our system.'],
+                    ],
+                ], 404);
             }
 
+            $token = Str::random(64);
+
+            $user->update([
+                'password_reset_token' => hash('sha256', $token),
+                'password_reset_expires_at' => now()->addHours(1),
+            ]);
+
+            Mail::to($user->email)->send(new PasswordResetMail(
+                resetUrl: url('/reset-password?token=' . $token . '&email=' . $user->email),
+                expiresIn: 60
+            ));
+
             return response()->json([
-                'message' => 'If the email exists in our system, a password reset link has been sent to your inbox.',
+                'message' => 'Password reset link has been sent to your email.',
                 'data' => [
-                    'email' => $validated['email'],
+                    'email' => $user->email,
                 ],
             ], 200);
         } catch (Throwable $e) {
