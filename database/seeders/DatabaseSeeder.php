@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             VenueSeeder::class,
             ClubDemoSeeder::class,
+            LiveMatchSeeder::class,
             ScoringDemoSeeder::class,
         ]);
 
