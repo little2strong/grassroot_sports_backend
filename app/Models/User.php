@@ -22,6 +22,7 @@ class User extends Authenticatable
         'user_type',
         'image',
         'is_onboarded',
+        'email_verified_at',
         'email_otp_hash',
         'email_otp_expires_at',
     ];
