@@ -42,16 +42,15 @@ class AuthController extends Controller
 
         // Load related data based on user type
         if ($user->user_type === 'player') {
-            $user->load('playerProfile');
+            $user->load('playerProfile:id,user_id,batting_style,bowling_style,primary_role,bio,is_public_profile');
         } elseif ($user->user_type === 'club') {
             $user->load([
-                'ownedClub',
-                'ownedClub.teams',
+                'ownedClub:id,name,slug,short_name,logo,owner_id,country,city,is_verified',
             ]);
         }
 
-        // Delete old tokens (optional)
-        $user->tokens()->delete();
+        // Delete old tokens in bulk for better performance
+        \DB::table('personal_access_tokens')->where('tokenable_id', $user->id)->delete();
 
         $token = $user->createToken('mobile-app')->plainTextToken;
 
@@ -59,7 +58,31 @@ class AuthController extends Controller
             'message' => 'Login successful.',
             'token' => $token,
             'data' => [
-                'user' => $user,
+                'user' => [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'user_type' => $user->user_type,
+                    'is_active' => $user->is_active,
+                    'image' => $user->image,
+                ] + ($user->user_type === 'player' && $user->playerProfile ? [
+                    'player_profile' => [
+                        'primary_role' => $user->playerProfile->primary_role,
+                        'batting_style' => $user->playerProfile->batting_style,
+                        'bowling_style' => $user->playerProfile->bowling_style,
+                    ]
+                ] : ($user->user_type === 'club' && $user->ownedClub ? [
+                    'club' => [
+                        'id' => $user->ownedClub->id,
+                        'name' => $user->ownedClub->name,
+                        'slug' => $user->ownedClub->slug,
+                        'short_name' => $user->ownedClub->short_name,
+                        'logo' => $user->ownedClub->logo,
+                    ]
+                ] : []))
             ]
         ]);
     }
