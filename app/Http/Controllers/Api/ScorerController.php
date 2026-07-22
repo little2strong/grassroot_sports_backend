@@ -283,7 +283,7 @@ class ScorerController extends Controller
     private function resolveScorerFixture(Request $request, int $fixtureId): Fixture
     {
         $user = auth('sanctum')->user();
-        $fixture = Fixture::with(['match', 'squads.player'])->find($fixtureId);
+        $fixture = Fixture::with(['match', 'squads' => fn ($q) => $q->select('id', 'fixture_id', 'user_id', 'team_id', 'position', 'jersey_number', 'is_captain', 'is_wicket_keeper')])->find($fixtureId);
 
         if (!$fixture) {
             abort(response()->json(['message' => 'Fixture not found.'], 404));
@@ -299,7 +299,7 @@ class ScorerController extends Controller
     private function resolveScorerMatch(Request $request, int $matchId): Matchs
     {
         $user = auth('sanctum')->user();
-        $match = Matchs::with(['fixture', 'firstInnings', 'secondInnings'])->find($matchId);
+        $match = Matchs::with(['fixture:id,club_id,home_team_id,away_team_id,scorer_user_id', 'firstInnings:id,match_id,fixture_id,current_innings_number,runs,wickets,overs,legal_deliveries,result,striker_id,non_striker_id,current_bowler_id,external_striker_index,external_non_striker_index,external_bowler_index', 'secondInnings:id,match_id,fixture_id,current_innings_number,runs,wickets,overs,legal_deliveries,result,striker_id,non_striker_id,current_bowler_id,external_striker_index,external_non_striker_index,external_bowler_index'])->find($matchId);
 
         if (!$match) {
             abort(response()->json(['message' => 'Match not found.'], 404));

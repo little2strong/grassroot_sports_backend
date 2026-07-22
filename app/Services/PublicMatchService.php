@@ -51,16 +51,12 @@ class PublicMatchService
     {
         $query = $this->publicFixtureQuery()
             ->with([
-                'club',
-                'homeTeam',
-                'awayTeam',
-                'venue',
-                'winner',
-                'manOfTheMatch',
-                'match.firstInnings.battingScores.player',
-                'match.firstInnings.bowlingFigures.bowler',
-                'match.secondInnings.battingScores.player',
-                'match.secondInnings.bowlingFigures.bowler',
+                'club:id,name,slug,short_name,logo,logo_url',
+                'homeTeam:id,name,slug,short_name,logo',
+                'awayTeam:id,name,slug,short_name,logo',
+                'venue:id,name,city',
+                'winner:id,name',
+                'manOfTheMatch:id,first_name,last_name',
                 'summary',
             ]);
 
@@ -152,7 +148,7 @@ class PublicMatchService
         if (in_array($fixture->status, ['live', 'paused'], true)) {
             return array_merge(
                 ['state' => $fixture->status === 'paused' ? 'paused' : 'live'],
-                $this->formatPublicLiveState($match->fresh(), $fixture)
+                $this->formatPublicLiveState($match, $fixture)
             );
         }
 
@@ -162,10 +158,40 @@ class PublicMatchService
         );
     }
 
-    public function formatPublicLiveState(Matchs $match, ?Fixture $fixture = null): array
+    public function getLiveState(Matchs $match): array
+    {
+        $fixture = $match->fixture;
+
+        return [
+            'match' => [
+                'id' => $match->id,
+                'fixture_id' => $match->fixture_id,
+                'current_innings_number' => $match->current_innings_number,
+                'current_over_display' => $match->current_over_display,
+                'is_paused' => $match->is_paused,
+            ],
+            'fixture' => [
+                'id' => $fixture->id,
+                'status' => $fixture->status,
+                'home_display_name' => $fixture->home_display_name,
+                'away_display_name' => $fixture->away_display_name,
+                'overs_per_innings' => $fixture->overs_per_innings,
+                'toss_winner_side' => $fixture->toss_winner_side,
+                'toss_decision' => $fixture->toss_decision,
+            ],
+            'innings' => $match->currentInnings() ? $this->formatPublicInningsQuick($match->currentInnings()) : null,
+            'recent_balls' => $match->currentInnings()
+                ? $this->getRecentBallsQuick($match->currentInnings())
+                : [],
+            'first_innings' => $match->firstInnings ? $this->formatPublicInningsQuick($match->firstInnings) : null,
+            'second_innings' => $match->secondInnings ? $this->formatPublicInningsQuick($match->secondInnings) : null,
+        ];
+    }
+
+    private function formatPublicLiveState(Matchs $match, ?Fixture $fixture = null): array
     {
         $fixture ??= $match->fixture;
-        $live = $this->scoring->getLiveState($match);
+        $live = $this->getLiveState($match);
 
         return [
             'match' => $live['match'],
@@ -178,19 +204,112 @@ class PublicMatchService
                 'away_score' => $this->formatSideScore($fixture, 'away'),
             ]),
             'current_innings' => $live['innings']
-                ? $this->formatPublicInnings($fixture, $live['innings'], true)
+                ? $this->formatPublicInningsQuickWithPlayers($fixture, $live['innings'], true)
                 : null,
             'first_innings' => $live['first_innings']
-                ? $this->formatPublicInnings($fixture, $live['first_innings'], false)
+                ? $this->formatPublicInningsQuickWithPlayers($fixture, $live['first_innings'], false)
                 : null,
             'second_innings' => $live['second_innings']
-                ? $this->formatPublicInnings($fixture, $live['second_innings'], false)
+                ? $this->formatPublicInningsQuickWithPlayers($fixture, $live['second_innings'], false)
                 : null,
             'recent_balls' => collect($live['recent_balls'] ?? [])
                 ->map(fn ($ball) => $this->formatPublicBall($ball))
                 ->values()
                 ->all(),
             'last_updated' => now()->toIso8601String(),
+        ];
+    }
+
+    private function formatPublicInningsQuickWithPlayers(Fixture $fixture, array $innings, bool $includeCurrentPlayers): array
+    {
+        $battingScores = collect($innings['batting_scores'] ?? [])
+            ->map(fn ($score) => $this->formatPublicBattingScore($fixture, $score, (bool) $innings['batting_is_club']))
+            ->values()
+            ->all();
+
+        $bowlingFigures = collect($innings['bowling_figures'] ?? [])
+            ->map(fn ($figure) => $this->formatPublicBowlingFigure($fixture, $figure, !(bool) $innings['batting_is_club']))
+            ->values()
+            ->all();
+
+        $data = [
+            'id' => $innings['id'],
+            'innings_number' => $innings['innings_number'],
+            'batting_side' => $innings['batting_is_club'] ? 'club' : 'opponent',
+            'runs' => $innings['runs'],
+            'wickets' => $innings['wickets'],
+            'overs' => $innings['overs'],
+            'score_display' => $innings['score_display'],
+            'target' => $innings['target'],
+            'run_rate' => $innings['run_rate'],
+            'required_run_rate' => $innings['required_run_rate'],
+            'result' => $innings['result'],
+            'batting' => $battingScores,
+            'bowling' => $bowlingFigures,
+        ];
+
+        if ($includeCurrentPlayers) {
+            $data['current_players'] = [
+                'striker' => $this->resolveCurrentPlayerName(
+                    $fixture,
+                    (bool) $innings['batting_is_club'],
+                    $innings['striker_id'] ?? null,
+                    $innings['external_striker_index'] ?? null
+                ),
+                'non_striker' => $this->resolveCurrentPlayerName(
+                    $fixture,
+                    (bool) $innings['batting_is_club'],
+                    $innings['non_striker_id'] ?? null,
+                    $innings['external_non_striker_index'] ?? null
+                ),
+                'bowler' => $this->resolveCurrentPlayerName(
+                    $fixture,
+                    !(bool) $innings['batting_is_club'],
+                    $innings['current_bowler_id'] ?? null,
+                    $innings['external_bowler_index'] ?? null
+                ),
+            ];
+        }
+
+        return $data;
+    }
+
+    private function getRecentBallsQuick($innings): array
+    {
+        return BallEvent::query()
+            ->where('innings_id', $innings->id)
+            ->with('wicket:id,ball_event_id,dismissal_type')
+            ->latest('ball_sequence')
+            ->limit(12)
+            ->get()
+            ->reverse()
+            ->map(fn ($ball) => $this->formatPublicBall($ball))
+            ->values()
+            ->all();
+    }
+
+    private function formatPublicInningsQuick($innings): array
+    {
+        return [
+            'id' => $innings->id,
+            'innings_number' => $innings->innings_number,
+            'batting_is_club' => $innings->batting_is_club,
+            'runs' => $innings->runs,
+            'wickets' => $innings->wickets,
+            'overs' => $innings->overs,
+            'score_display' => $innings->score_display,
+            'target' => $innings->target,
+            'run_rate' => $innings->run_rate,
+            'required_run_rate' => $innings->required_run_rate,
+            'result' => $innings->result,
+            'striker_id' => $innings->striker_id,
+            'non_striker_id' => $innings->non_striker_id,
+            'external_striker_index' => $innings->external_striker_index,
+            'external_non_striker_index' => $innings->external_non_striker_index,
+            'current_bowler_id' => $innings->current_bowler_id,
+            'external_bowler_index' => $innings->external_bowler_index,
+            'batting_scores' => $innings->battingScores->makeHidden(['id', 'innings_id', 'match_id', 'fixture_id', 'team_id', 'user_id', 'external_player_name', 'batting_order', 'dismissal_type', 'wicket_id', 'started_at', 'created_at', 'updated_at', 'is_out', 'runs', 'balls_faced', 'fours', 'sixes', 'strike_rate', 'is_on_strike', 'score_display']),
+            'bowling_figures' => $innings->bowlingFigures->makeHidden(['id', 'innings_id', 'match_id', 'fixture_id', 'team_id', 'user_id', 'external_player_name', 'external_player_index', 'overs', 'runs_conceded', 'wickets', 'figures_display', 'is_current_bowler', 'balls_bowled', 'created_at', 'updated_at']),
         ];
     }
 

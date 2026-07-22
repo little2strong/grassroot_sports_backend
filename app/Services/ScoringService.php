@@ -385,12 +385,67 @@ class ScoringService
                 'toss_winner_side' => $fixture->toss_winner_side,
                 'toss_decision' => $fixture->toss_decision,
             ],
-            'innings' => $innings ? $this->formatInningsLive($innings) : null,
+            'innings' => $innings ? $this->formatInningsLiveQuick($innings) : null,
             'recent_balls' => $innings
-                ? $innings->ballEvents()->with('wicket')->latest('ball_sequence')->limit(12)->get()->reverse()->values()
+                ? $this->getRecentBalls($innings)
                 : [],
-            'first_innings' => $match->firstInnings ? $this->formatInningsLive($match->firstInnings) : null,
-            'second_innings' => $match->secondInnings ? $this->formatInningsLive($match->secondInnings) : null,
+            'first_innings' => $match->firstInnings ? $this->formatInningsLiveQuick($match->firstInnings) : null,
+            'second_innings' => $match->secondInnings ? $this->formatInningsLiveQuick($match->secondInnings) : null,
+        ];
+    }
+
+    private function getRecentBalls($innings): array
+    {
+        return BallEvent::query()
+            ->where('innings_id', $innings->id)
+            ->with('wicket:id,ball_event_id,dismissal_type')
+            ->latest('ball_sequence')
+            ->limit(12)
+            ->get()
+            ->reverse()
+            ->map(fn ($ball) => $this->formatBallEvent($ball))
+            ->values()
+            ->all();
+    }
+
+    private function formatInningsLiveQuick($innings): array
+    {
+        return [
+            'id' => $innings->id,
+            'innings_number' => $innings->innings_number,
+            'batting_is_club' => $innings->batting_is_club,
+            'runs' => $innings->runs,
+            'wickets' => $innings->wickets,
+            'overs' => $innings->overs,
+            'score_display' => $innings->score_display,
+            'target' => $innings->target,
+            'run_rate' => $innings->run_rate,
+            'required_run_rate' => $innings->required_run_rate,
+            'result' => $innings->result,
+            'striker_id' => $innings->striker_id,
+            'non_striker_id' => $innings->non_striker_id,
+            'external_striker_index' => $innings->external_striker_index,
+            'external_non_striker_index' => $innings->external_non_striker_index,
+            'current_bowler_id' => $innings->current_bowler_id,
+            'external_bowler_index' => $innings->external_bowler_index,
+            'batting_scores' => $innings->battingScores->makeHidden(['id', 'innings_id', 'match_id', 'fixture_id', 'team_id', 'user_id', 'external_player_name', 'batting_order', 'dismissal_type', 'wicket_id', 'started_at', 'created_at', 'updated_at', 'is_out', 'runs', 'balls_faced', 'fours', 'sixes', 'strike_rate', 'is_on_strike', 'score_display']),
+            'bowling_figures' => $innings->bowlingFigures->makeHidden(['id', 'innings_id', 'match_id', 'fixture_id', 'team_id', 'user_id', 'external_player_name', 'external_player_index', 'overs', 'runs_conceded', 'wickets', 'figures_display', 'is_current_bowler', 'balls_bowled', 'created_at', 'updated_at']),
+        ];
+    }
+
+    private function formatBallEvent(BallEvent $ball): array
+    {
+        return [
+            'over_number' => $ball->over_number,
+            'ball_number' => $ball->ball_number,
+            'display' => $ball->display_text,
+            'color' => $ball->display_color,
+            'total_runs' => $ball->total_runs,
+            'event_type' => $ball->event_type,
+            'is_wicket' => $ball->is_wicket_ball,
+            'is_four' => $ball->is_boundary_four,
+            'is_six' => $ball->is_boundary_six,
+            'commentary' => $ball->commentary,
         ];
     }
 
