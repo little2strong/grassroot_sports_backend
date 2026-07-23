@@ -716,6 +716,8 @@ class ProfileController extends Controller
 
     private function formatInvitation(Invitation $invitation): array
     {
+        $club = $invitation->club;
+        
         return [
             'id' => $invitation->id,
             'club_id' => $invitation->club_id,
@@ -734,6 +736,20 @@ class ProfileController extends Controller
             'reject_url' => $invitation->reject_url,
             'expires_at' => optional($invitation->expires_at)->toIso8601String(),
             'created_at' => optional($invitation->created_at)->toIso8601String(),
+            'club' => $club ? [
+                'id' => $club->id,
+                'name' => $club->name,
+                'slug' => $club->slug,
+                'short_name' => $club->short_name,
+                'logo' => $club->logo,
+                'logo_url' => $this->assetUrl($club->logo),
+            ] : null,
+            'team' => $invitation->team ? [
+                'id' => $invitation->team->id,
+                'name' => $invitation->team->name,
+                'slug' => $invitation->team->slug,
+                'short_name' => $invitation->team->short_name,
+            ] : null,
         ];
     }
 
@@ -905,7 +921,7 @@ class ProfileController extends Controller
                     ->orWhere('invited_email', $user->email);
             })
             ->with([
-                'club:id,name,slug,short_name,logo,logo_url',
+                'club:id,name,slug,short_name,logo',
                 'team:id,name,slug,short_name',
                 'invitedBy:id,first_name,last_name',
             ])
