@@ -17,8 +17,6 @@ Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logo
 
 Route::get('/clubs/{club}/players', [ProfileController::class, 'publicClubPlayers']);
 Route::get('/clubs/{club}/available-players', [ProfileController::class, 'availableClubPlayers']);
-Route::get('/invitations/{token}/accept', [ProfileController::class, 'acceptInvitation']);
-Route::get('/invitations/{token}/reject', [ProfileController::class, 'rejectInvitation']);
 
 /*
 |--------------------------------------------------------------------------
@@ -43,6 +41,10 @@ Route::middleware('auth:sanctum')->prefix('profile')->group(function () {
     Route::post('/club/invitations', [ProfileController::class, 'invitePlayerToClub']);
     Route::post('/club/squads', [ProfileController::class, 'createSquad']);
     Route::post('/club/squads/{teamId}/players', [ProfileController::class, 'addPlayerToSquad']);
+
+    Route::get('/invitations', [ProfileController::class, 'listInvitations']);
+    Route::post('/invitations/{token}/accept', [ProfileController::class, 'acceptInvitation']);
+    Route::post('/invitations/{token}/reject', [ProfileController::class, 'rejectInvitation']);
 
     Route::get('/notifications', [ProfileController::class, 'listNotifications']);
     Route::post('/notifications/mark-all-as-read', [ProfileController::class, 'markAllNotificationsAsRead']);

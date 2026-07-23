@@ -588,142 +588,6 @@ class ProfileController extends Controller
         ], 201);
     }
 
-    public function acceptInvitation(string $token): JsonResponse
-    {
-        $invitation = Invitation::query()
-            ->where('token', $token)
-            ->with(['club', 'team', 'invitedUser'])
-            ->first();
-
-        if (!$invitation) {
-            return response()->json([
-                'message' => 'Invitation not found.',
-            ], 404);
-        }
-
-        if (!$invitation->isPending()) {
-            return response()->json([
-                'message' => 'This invitation is no longer available.',
-                'data' => [
-                    'invitation' => $this->formatInvitation($invitation),
-                ],
-            ], 422);
-        }
-
-        $user = $invitation->invitedUser ?: User::query()
-            ->where('email', $invitation->invited_email)
-            ->where('user_type', 'player')
-            ->where('is_active', true)
-            ->first();
-
-        if (!$user) {
-            return response()->json([
-                'message' => 'Please register as a player with the invited email before accepting this invitation.',
-            ], 422);
-        }
-
-        ClubMember::updateOrCreate(
-            [
-                'club_id' => $invitation->club_id,
-                'user_id' => $user->id,
-            ],
-            [
-                'role' => $invitation->role,
-                'status' => 'active',
-                'joined_at' => now(),
-            ]
-        );
-
-        if ($invitation->team_id) {
-            TeamMember::updateOrCreate(
-                [
-                    'team_id' => $invitation->team_id,
-                    'user_id' => $user->id,
-                ],
-                [
-                    'role' => in_array($invitation->role, ['captain', 'manager', 'scorer'])
-                        ? $invitation->role
-                        : 'player',
-                    'is_active' => true,
-                    'joined_at' => now(),
-                ]
-            );
-        }
-
-        $invitation->accept($user->id);
-        $invitation->refresh()->load(['club', 'team', 'invitedBy', 'invitedUser']);
-
-        AppNotification::create([
-            'user_id' => $invitation->invited_by,
-            'type' => AppNotification::TYPE_INVITATION_ACCEPTED,
-            'title' => 'Invitation accepted',
-            'message' => $user->full_name . ' accepted your invitation to join ' . $invitation->club->name . '.',
-            'notifiable_type' => Invitation::class,
-            'notifiable_id' => $invitation->id,
-            'data' => [
-                'invitation_id' => $invitation->id,
-                'club_id' => $invitation->club_id,
-                'club_name' => $invitation->club->name,
-                'player_id' => $user->id,
-                'player_name' => $user->full_name,
-            ],
-        ]);
-
-        return response()->json([
-            'message' => 'Invitation accepted successfully.',
-            'data' => [
-                'invitation' => $this->formatInvitation($invitation),
-            ],
-        ]);
-    }
-
-    public function rejectInvitation(string $token): JsonResponse
-    {
-        $invitation = Invitation::query()
-            ->where('token', $token)
-            ->with(['club', 'team', 'invitedBy', 'invitedUser'])
-            ->first();
-
-        if (!$invitation) {
-            return response()->json([
-                'message' => 'Invitation not found.',
-            ], 404);
-        }
-
-        if (!$invitation->isPending()) {
-            return response()->json([
-                'message' => 'This invitation is no longer available.',
-                'data' => [
-                    'invitation' => $this->formatInvitation($invitation),
-                ],
-            ], 422);
-        }
-
-        $invitation->reject();
-        $invitation->refresh()->load(['club', 'team', 'invitedBy', 'invitedUser']);
-
-        AppNotification::create([
-            'user_id' => $invitation->invited_by,
-            'type' => AppNotification::TYPE_INVITATION_REJECTED,
-            'title' => 'Invitation rejected',
-            'message' => $invitation->invited_email . ' rejected your invitation to join ' . $invitation->club->name . '.',
-            'notifiable_type' => Invitation::class,
-            'notifiable_id' => $invitation->id,
-            'data' => [
-                'invitation_id' => $invitation->id,
-                'club_id' => $invitation->club_id,
-                'club_name' => $invitation->club->name,
-            ],
-        ]);
-
-        return response()->json([
-            'message' => 'Invitation rejected successfully.',
-            'data' => [
-                'invitation' => $this->formatInvitation($invitation),
-            ],
-        ]);
-    }
-
     private function formatPlayerProfile($user): array
     {
         $profile = $user->playerProfile;
@@ -1017,6 +881,205 @@ class ProfileController extends Controller
             'data' => [
                 'unread_count' => 0,
             ],
+        ]);
+    }
+
+    public function listInvitations(Request $request): JsonResponse
+    {
+        $user = auth('sanctum')->user();
+
+        if ($user->user_type !== 'player') {
+            return response()->json([
+                'message' => 'Only player accounts can view invitations.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'status' => 'sometimes|in:pending,accepted,rejected,expired,cancelled',
+            'per_page' => 'sometimes|integer|min:1|max:50',
+        ]);
+
+        $query = Invitation::query()
+            ->where(function ($q) use ($user) {
+                $q->where('invited_user_id', $user->id)
+                    ->orWhere('invited_email', $user->email);
+            })
+            ->with([
+                'club:id,name,slug,short_name,logo,logo_url',
+                'team:id,name,slug,short_name',
+                'invitedBy:id,first_name,last_name',
+            ])
+            ->orderByDesc('created_at');
+
+        if ($request->filled('status')) {
+            if ($request->input('status') === 'expired') {
+                $query->where(function ($q) {
+                    $q->where('status', '!=', 'pending')
+                        ->orWhere(function ($qq) {
+                            $qq->where('status', 'pending')->where('expires_at', '<', now());
+                        });
+                });
+            } else {
+                $query->where('status', $request->input('status'));
+            }
+        }
+
+        $invitations = $query->paginate($validated['per_page'] ?? 15);
+
+        return response()->json([
+            'message' => 'Invitations fetched successfully.',
+            'data' => [
+                'invitations' => $invitations->items(),
+                'status_counts' => Invitation::where(function ($q) use ($user) {
+                    $q->where('invited_user_id', $user->id)
+                        ->orWhere('invited_email', $user->email);
+                })->get()
+                    ->groupBy('status')
+                    ->map(fn ($items) => $items->count())
+                    ->all(),
+            ],
+            'meta' => [
+                'current_page' => $invitations->currentPage(),
+                'last_page' => $invitations->lastPage(),
+                'per_page' => $invitations->perPage(),
+                'total' => $invitations->total(),
+            ],
+        ]);
+    }
+
+    public function acceptInvitation(Request $request, string $token): JsonResponse
+    {
+        $user = auth('sanctum')->user();
+
+        if ($user->user_type !== 'player') {
+            return response()->json([
+                'message' => 'Only player accounts can accept invitations.',
+            ], 403);
+        }
+
+        $invitation = Invitation::query()
+            ->where('token', $token)
+            ->where(function ($q) use ($user) {
+                $q->where('invited_user_id', $user->id)
+                    ->orWhere('invited_email', $user->email);
+            })
+            ->with(['club', 'team'])
+            ->first();
+
+        if (!$invitation) {
+            return response()->json(['message' => 'Invitation not found.'], 404);
+        }
+
+        if (!$invitation->isPending()) {
+            return response()->json([
+                'message' => 'This invitation is no longer available.',
+                'data' => $this->formatInvitation($invitation),
+            ], 422);
+        }
+
+        ClubMember::updateOrCreate(
+            [
+                'club_id' => $invitation->club_id,
+                'user_id' => $user->id,
+            ],
+            [
+                'role' => $invitation->role,
+                'status' => 'active',
+                'joined_at' => now(),
+            ]
+        );
+
+        if ($invitation->team_id) {
+            TeamMember::updateOrCreate(
+                [
+                    'team_id' => $invitation->team_id,
+                    'user_id' => $user->id,
+                ],
+                [
+                    'role' => in_array($invitation->role, ['captain', 'manager', 'scorer'])
+                        ? $invitation->role
+                        : 'player',
+                    'is_active' => true,
+                    'joined_at' => now(),
+                ]
+            );
+        }
+
+        $invitation->accept($user->id);
+        $invitation->refresh()->load(['club', 'team', 'invitedBy', 'invitedUser']);
+
+        AppNotification::create([
+            'user_id' => $invitation->invited_by,
+            'type' => AppNotification::TYPE_INVITATION_ACCEPTED,
+            'title' => 'Invitation accepted',
+            'message' => $user->full_name . ' accepted your invitation to join ' . $invitation->club->name . '.',
+            'notifiable_type' => Invitation::class,
+            'notifiable_id' => $invitation->id,
+            'data' => [
+                'invitation_id' => $invitation->id,
+                'club_id' => $invitation->club_id,
+                'club_name' => $invitation->club->name,
+                'player_id' => $user->id,
+                'player_name' => $user->full_name,
+            ],
+        ]);
+
+        return response()->json([
+            'message' => 'Invitation accepted successfully.',
+            'data' => $this->formatInvitation($invitation),
+        ]);
+    }
+
+    public function rejectInvitation(Request $request, string $token): JsonResponse
+    {
+        $user = auth('sanctum')->user();
+
+        if ($user->user_type !== 'player') {
+            return response()->json([
+                'message' => 'Only player accounts can reject invitations.',
+            ], 403);
+        }
+
+        $invitation = Invitation::query()
+            ->where('token', $token)
+            ->where(function ($q) use ($user) {
+                $q->where('invited_user_id', $user->id)
+                    ->orWhere('invited_email', $user->email);
+            })
+            ->with(['club', 'team'])
+            ->first();
+
+        if (!$invitation) {
+            return response()->json(['message' => 'Invitation not found.'], 404);
+        }
+
+        if (!$invitation->isPending()) {
+            return response()->json([
+                'message' => 'This invitation is no longer available.',
+                'data' => $this->formatInvitation($invitation),
+            ], 422);
+        }
+
+        $invitation->reject();
+        $invitation->refresh()->load(['club', 'team', 'invitedBy', 'invitedUser']);
+
+        AppNotification::create([
+            'user_id' => $invitation->invited_by,
+            'type' => AppNotification::TYPE_INVITATION_REJECTED,
+            'title' => 'Invitation rejected',
+            'message' => $invitation->invited_email . ' rejected your invitation to join ' . $invitation->club->name . '.',
+            'notifiable_type' => Invitation::class,
+            'notifiable_id' => $invitation->id,
+            'data' => [
+                'invitation_id' => $invitation->id,
+                'club_id' => $invitation->club_id,
+                'club_name' => $invitation->club->name,
+            ],
+        ]);
+
+        return response()->json([
+            'message' => 'Invitation rejected successfully.',
+            'data' => $this->formatInvitation($invitation),
         ]);
     }
 
