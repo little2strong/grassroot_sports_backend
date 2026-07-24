@@ -1011,6 +1011,7 @@ class ProfileController extends Controller
                 $q->where('invited_user_id', $user->id)
                     ->orWhere('invited_email', $user->email);
             })
+            ->where('status', 'pending')
             ->with([
                 'club:id,name,slug,short_name,logo',
                 'team:id,name,slug,short_name',
@@ -1018,7 +1019,7 @@ class ProfileController extends Controller
             ])
             ->orderByDesc('created_at');
 
-        if ($request->filled('status')) {
+        if ($request->filled('status') && $request->input('status') !== 'pending') {
             if ($request->input('status') === 'expired') {
                 $query->where(function ($q) {
                     $q->where('status', '!=', 'pending')
