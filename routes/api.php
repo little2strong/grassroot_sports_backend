@@ -17,6 +17,7 @@ Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logo
 
 Route::get('/clubs/{club}/players', [ProfileController::class, 'publicClubPlayers']);
 Route::get('/clubs/{club}/available-players', [ProfileController::class, 'availableClubPlayers']);
+Route::get('/player/{player}/club-details', [ProfileController::class, 'playerClubDetails']);
 
 /*
 |--------------------------------------------------------------------------

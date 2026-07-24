@@ -132,6 +132,42 @@ class ProfileController extends Controller
         ]);
     }
 
+    public function playerClubDetails(Request $request, string $player): JsonResponse
+    {
+        $user = User::where('user_type', 'player')->find($player);
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Player not found.',
+            ], 404);
+        }
+
+        $user->load([
+            'playerProfile',
+            'clubMemberships.club',
+            'clubMemberships.club.teams',
+            'teams',
+        ]);
+
+        $clubs = $user->clubMemberships
+            ->filter(fn ($membership) => $membership->club && $membership->status === 'active')
+            ->map(fn ($membership) => $this->formatPlayerClubMembership($membership))
+            ->values();
+
+        return response()->json([
+            'message' => 'Player club details fetched successfully.',
+            'data' => [
+                'player' => [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'full_name' => trim($user->first_name . ' ' . $user->last_name),
+                ],
+                'clubs' => $clubs,
+            ],
+        ]);
+    }
+
     public function updatePlayer(Request $request): JsonResponse
     {
         $user = auth('sanctum')->user();
@@ -750,6 +786,61 @@ class ProfileController extends Controller
                 'slug' => $invitation->team->slug,
                 'short_name' => $invitation->team->short_name,
             ] : null,
+        ];
+    }
+
+    private function formatPlayerClubMembership($membership): array
+    {
+        $club = $membership->club;
+
+        return [
+            'id' => $membership->id,
+            'role' => $membership->role,
+            'status' => $membership->status,
+            'joined_at' => optional($membership->joined_at)->toIso8601String(),
+            'club' => [
+                'id' => $club->id,
+                'owner_id' => $club->owner_id,
+                'name' => $club->name,
+                'slug' => $club->slug,
+                'short_name' => $club->short_name,
+                'logo' => $club->logo,
+                'logo_url' => $this->assetUrl($club->logo),
+                'cover_image' => $club->cover_image,
+                'cover_image_url' => $this->assetUrl($club->cover_image),
+                'description' => $club->description,
+                'country' => $club->country,
+                'city' => $club->city,
+                'address' => $club->address,
+                'website' => $club->website,
+                'founded_year' => $club->founded_year,
+                'is_public' => $club->is_public,
+                'is_verified' => $club->is_verified,
+                'show_public_profiles' => $club->show_public_profiles,
+                'hide_player_names_publicly' => $club->hide_player_names_publicly,
+                'hide_player_photos_publicly' => $club->hide_player_photos_publicly,
+                'members_count' => $club->members_count,
+                'teams_count' => $club->teams_count,
+                'followers_count' => $club->followers_count,
+                'created_at' => optional($club->created_at)->toIso8601String(),
+            ],
+            'owner' => $club->owner ? [
+                'id' => $club->owner->id,
+                'first_name' => $club->owner->first_name,
+                'last_name' => $club->owner->last_name,
+                'full_name' => trim($club->owner->first_name . ' ' . $club->owner->last_name),
+                'email' => $club->owner->email,
+            ] : null,
+            'teams' => $club->teams->map(fn ($team) => [
+                'id' => $team->id,
+                'name' => $team->name,
+                'slug' => $team->slug,
+                'short_name' => $team->short_name,
+                'logo_url' => $this->assetUrl($team->logo),
+                'primary_color' => $team->primary_color,
+                'secondary_color' => $team->secondary_color,
+                'is_active' => $team->is_active,
+            ])->values(),
         ];
     }
 
