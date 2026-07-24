@@ -51,7 +51,7 @@ class PublicMatchService
     {
         $query = $this->publicFixtureQuery()
             ->with([
-                'club:id,name,slug,short_name,logo,logo_url',
+                'club:id,name,slug,short_name,logo',
                 'homeTeam:id,name,slug,short_name,logo',
                 'awayTeam:id,name,slug,short_name,logo',
                 'venue:id,name,city',

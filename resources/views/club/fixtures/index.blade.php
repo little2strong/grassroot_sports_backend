@@ -72,9 +72,20 @@
                                 </td>
                                 <td><span class="club-badge muted">{{ $fixture->match_type_label ?? $fixture->match_type }}</span></td>
                                 <td>
-                                    <span class="club-badge {{ in_array($fixture->status, ['live','paused']) ? 'danger' : ($fixture->status === 'published' ? 'success' : 'muted') }}">
-                                        {{ ucfirst($fixture->status) }}
-                                    </span>
+                                    <form method="POST" action="{{ route('club.fixtures.update', $fixture) }}" class="d-inline status-change-form" data-fixture-id="{{ $fixture->id }}">
+                                        @csrf
+                                        @method('PUT')
+                                        <input type="hidden" name="status" value="">
+                                        <select name="status" class="form-select form-select-sm d-inline-block w-auto status-select" onchange="handleStatusChange(this, {{ $fixture->id }});">
+                                            @if(!$locked)
+                                                @foreach(['draft', 'published', 'cancelled', 'postponed'] as $s)
+                                                    <option value="{{ $s }}" @selected($fixture->status === $s)>{{ ucfirst($s) }}</option>
+                                                @endforeach
+                                            @else
+                                                <option value="{{ $fixture->status }}" selected disabled>{{ ucfirst($fixture->status) }}</option>
+                                            @endif
+                                        </select>
+                                    </form>
                                 </td>
                                 <td>
                                     <span class="club-badge {{ $fixture->is_public ? 'success' : 'muted' }}">
@@ -155,7 +166,20 @@
                         <div class="match-meta mb-2">
                             <span>{{ $fixture->scheduled_date?->format('d M Y') }}</span>
                             <span class="club-badge muted">{{ $fixture->match_type_label ?? $fixture->match_type }}</span>
-                            <span class="club-badge {{ in_array($fixture->status, ['live','paused']) ? 'danger' : 'muted' }}">{{ ucfirst($fixture->status) }}</span>
+                            @if(!$locked)
+                                <form method="POST" action="{{ route('club.fixtures.update', $fixture) }}" class="d-inline status-change-form" data-fixture-id="{{ $fixture->id }}">
+                                    @csrf
+                                    @method('PUT')
+                                    <input type="hidden" name="status" value="">
+                                    <select name="status" class="form-select form-select-sm d-inline-block w-auto status-select" onchange="handleStatusChange(this, {{ $fixture->id }});">
+                                        @foreach(['draft', 'published', 'cancelled', 'postponed'] as $s)
+                                            <option value="{{ $s }}" @selected($fixture->status === $s)>{{ ucfirst($s) }}</option>
+                                        @endforeach
+                                    </select>
+                                </form>
+                            @else
+                                <span class="club-badge {{ in_array($fixture->status, ['live','paused']) ? 'danger' : 'muted' }}">{{ ucfirst($fixture->status) }}</span>
+                            @endif
                         </div>
                         @php
                             $totalFees = $fixture->matchFees->sum('amount');
@@ -277,5 +301,57 @@
             });
         });
     });
+
+    function handleStatusChange(select, fixtureId) {
+        const newStatus = select.value;
+        if (!newStatus) return;
+
+        const form = select.closest('.status-change-form');
+        const hiddenInput = form.querySelector('input[type="hidden"]');
+        hiddenInput.value = newStatus;
+
+        Swal.fire({
+            title: 'Change Fixture Status?',
+            text: 'Are you sure you want to change the status to "' + newStatus.charAt(0).toUpperCase() + newStatus.slice(1) + '"?',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#065f46',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, change status',
+            cancelButtonText: 'Cancel'
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                const formData = new FormData(form);
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || formData.get('_token'),
+                    },
+                    body: formData
+                })
+                .then(response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                    } else {
+                        return response.json();
+                    }
+                })
+                .then(data => {
+                    if (data && data.message) {
+                        Swal.fire('Success', data.message, 'success');
+                        setTimeout(() => { window.location.reload(); }, 1000);
+                    } else {
+                        Swal.fire('Error', data?.message || 'Failed to update status', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire('Error', 'Failed to update status. Please try again.', 'error');
+                });
+            } else {
+                form.reset();
+            }
+        });
+    }
 </script>
 @endpush

@@ -143,7 +143,7 @@ class PlayerController extends Controller
         ]);
 
         $fixture = $this->resolvePlayerFixture($user, $fixtureId);
-        dd($fixture, $fixtureId);
+        // dd($fixture, $fixtureId);
 
         if (!$fixture) {
             return response()->json(['message' => 'Fixture not found or access denied.'], 404);
