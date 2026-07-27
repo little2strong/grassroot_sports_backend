@@ -38,11 +38,11 @@
                 <p class="page-subtitle">Manage super admin and support users</p>
             </div>
             <div class="d-flex gap-2">
-                @can('view roles')
+                {{-- @can('view roles') --}}
                     <a href="{{ route('admin.roles.index') }}" class="btn btn-primary">
                         <i class="fas fa-user-shield me-2"></i>Manage Roles
                     </a>
-                @endcan
+                {{-- @endcan --}}
 
 
                 @can('create admin')
@@ -166,12 +166,12 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="user-actions-container">
-                                        @can('edit admin')
+                                        {{-- @can('edit admin') --}}
                                             <button class="user-action-btn edit" onclick="openEditModal({{ $user->id }})"
                                                 title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                        @endcan
+                                        {{-- @endcan --}}
                                         @can('edit admin')
                                             <a class="user-action-btn edit" href="javascript:void(0)" data-bs-toggle="modal"
                                                 data-bs-target="#changePasswordModal" data-user-id="{{ $user->id }}"
@@ -334,10 +334,10 @@
                                             @foreach ($groupPermissions as $permission)
                                                 <div class="col-md-6 col-sm-6">
                                                     <div class="form-check">
-                                                        <input class="form-check-input edit-permission-checkbox"
-                                                            type="checkbox" name="permissions[]"
-                                                            id="edit_permission_{{ str_replace('.', '_', $permission->name) }}"
-                                                            value="{{ $permission->name }}" disabled>
+<input class="form-check-input edit-permission-checkbox"
+                                    type="checkbox" name="permissions[]"
+                                    id="edit_permission_{{ str_replace('.', '_', $permission->name) }}"
+                                    value="{{ $permission->name }}">
                                                         <label class="form-check-label fw-semibold"
                                                             for="edit_permission_{{ str_replace('.', '_', $permission->name) }}">
                                                             {{ permission_action($permission->name) }}
@@ -467,20 +467,43 @@
             });
         });
 
-        function showRolePermissions(roleName) {
-            // Uncheck everything first
+        function showRolePermissions(roleName, userPermissions = []) {
             $('.edit-permission-checkbox').prop('checked', false);
 
-            if (!rolePermissions[roleName]) return;
+            const permissionsToCheck = [];
+            
+            if (roleName && rolePermissions[roleName]) {
+                rolePermissions[roleName].forEach(permission => {
+                    permissionsToCheck.push(permission);
+                });
+            }
 
-            rolePermissions[roleName].forEach(permission => {
+            if (userPermissions && userPermissions.length > 0) {
+                userPermissions.forEach(permission => {
+                    if (!permissionsToCheck.includes(permission)) {
+                        permissionsToCheck.push(permission);
+                    }
+                });
+            }
+
+            permissionsToCheck.forEach(permission => {
                 const id = '#edit_permission_' + permission.replace(/\./g, '_');
                 $(id).prop('checked', true);
             });
         }
+
+        function getDirectPermissions(roleName, checkedPermissions) {
+            if (!roleName || !rolePermissions[roleName]) {
+                return checkedPermissions;
+            }
+            const rolePerms = rolePermissions[roleName];
+            return checkedPermissions.filter(p => !rolePerms.includes(p));
+        }
     </script>
 
     <script>
+        let currentEditingDirectPermissions = [];
+
         $(document).ready(function() {
             // Initialize DataTable
             $('#adminUsersTable').DataTable({
@@ -554,11 +577,39 @@
             $('#editUserForm').submit(function(e) {
                 e.preventDefault();
                 let userId = $('#editUserId').val();
-                let formData = $(this).serialize();
+                
+                if (!userId) {
+                    iziToast.error({
+                        message: 'User ID is missing. Please try again.',
+                        position: 'topRight'
+                    });
+                    return;
+                }
+                
+                let selectedRole = $('#editUserRole').val();
+                let checkedPermissions = $('.edit-permission-checkbox:checked')
+                    .map(function() { return this.value; }).get();
+                let directPermissions = getDirectPermissions(selectedRole, checkedPermissions);
+                
+                let formData = new FormData();
+                let csrfToken = $('meta[name="csrf-token"]').attr('content') || $('input[name="_token"]').val();
+                formData.append('_token', csrfToken);
+                formData.append('name', $('#editUserName').val());
+                formData.append('role', selectedRole || '');
+                formData.append('status', $('#editUserStatus').val());
+                directPermissions.forEach(function(perm) {
+                    formData.append('permissions[]', perm);
+                });
+                
                 $.ajax({
                     url: `/admin/admins/${userId}`,
                     method: 'PUT',
                     data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken
+                    },
                     success: function(res) {
                         iziToast.success({
                             message: res.message,
@@ -568,67 +619,103 @@
                         location.reload();
                     },
                     error: function(xhr) {
+                        let errorMsg = 'Something went wrong';
+                        if (xhr.status === 422) {
+                            $.each(xhr.responseJSON.errors, function(k, v) {
+                                iziToast.error({
+                                    message: v[0],
+                                    position: 'topRight'
+                                });
+                            });
+                        } else if (xhr.responseJSON?.message) {
+                            errorMsg = xhr.responseJSON.message;
+                        } else if (xhr.status === 419) {
+                            errorMsg = 'Session expired. Please refresh the page.';
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1500);
+                        }
                         iziToast.error({
-                            message: xhr.responseJSON?.message ||
-                                'Something went wrong',
+                            message: errorMsg,
                             position: 'topRight'
                         });
                     }
                 });
             });
-        });
 
-        // Open Edit Modal dynamically
-        function openEditModal(userId) {
-            $.get(`/admin/admins/${userId}/edit`, function(user) {
-                $('#editUserId').val(user.id);
-                $('#editUserName').val(user.name);
-                $('#editUserRole').val(user.role);
-                $('#editUserStatus').val(user.status ? 1 : 0);
-
-                showRolePermissions(user.role);
-
-                // $('.edit-permission-checkbox').each(function() {
-                //     let p = $(this).val();
-
-                //     if (user.rolePermissions.includes(p)) {
-                //         console.log(p);
-                //         $(this).prop('checked', true).prop('disabled', true);
-                //     } else {
-                //         $(this).prop('checked', user.userPermissions.includes(p)).prop('disabled', false);
-                //     }
-                // });
-
-                $('#editUserModal').modal('show');
-            });
-        }
-        $('#editUserRole').on('change', function() {
-            showRolePermissions(this.value);
-        });
-
-        // Suspend User
-        function toggleUserStatus(userId, currentStatus) {
-            let action = currentStatus ? 'suspend' : 'activate';
-            let confirmMessage = currentStatus ?
-                'Are you sure you want to suspend this user?' :
-                'Are you sure you want to activate this user?';
-
-            if (confirm(confirmMessage)) {
-                $.post(`/admin/admins/${userId}/suspend`, {
-                    _token: "{{ csrf_token() }}"
-                }, function(res) {
-                    iziToast.success({
-                        message: res.message,
+            // Open Edit Modal dynamically
+            window.openEditModal = function(userId) {
+                if (!userId) {
+                    iziToast.error({
+                        message: 'User ID is required',
                         position: 'topRight'
                     });
-                    location.reload();
-                }).fail(function() {
+                    return;
+                }
+                
+                $.get(`/admin/admins/${userId}/edit`, function(user) {
+                    if (!user || !user.id) {
+                        iziToast.error({
+                            message: 'User not found',
+                            position: 'topRight'
+                        });
+                        return;
+                    }
+                    
+                    $('#editUserId').val(user.id);
+                    $('#editUserName').val(user.name || '');
+                    $('#editUserRole').val(user.role || '');
+                    $('#editUserStatus').val(user.status ? 1 : 0);
+
+                    currentEditingDirectPermissions = user.directPermissions || [];
+                    showRolePermissions(user.role || '', currentEditingDirectPermissions);
+
+                    $('#editUserModal').modal('show');
+                }).fail(function(xhr) {
                     iziToast.error({
-                        message: 'Something went wrong',
+                        message: 'Failed to load user data',
                         position: 'topRight'
                     });
                 });
-            }
-        }
+            };
+
+            $('#editUserRole').on('change', function() {
+                let selectedRole = $(this).val();
+                if (selectedRole) {
+                    showRolePermissions(selectedRole, currentEditingDirectPermissions);
+                } else {
+                    $('.edit-permission-checkbox').prop('checked', false);
+                    currentEditingDirectPermissions.forEach(function(perm) {
+                        const id = '#edit_permission_' + perm.replace(/\./g, '_');
+                        $(id).prop('checked', true);
+                    });
+                }
+            });
+
+            // Suspend User
+            window.toggleUserStatus = function(userId, currentStatus) {
+                let action = currentStatus ? 'suspend' : 'activate';
+                let confirmMessage = currentStatus ?
+                    'Are you sure you want to suspend this user?' :
+                    'Are you sure you want to activate this user?';
+
+                if (confirm(confirmMessage)) {
+                    $.post(`/admin/admins/${userId}/suspend`, {
+                        _token: $('meta[name="csrf-token"]').attr('content')
+                    }, function(res) {
+                        iziToast.success({
+                            message: res.message,
+                            position: 'topRight'
+                        });
+                        location.reload();
+                    }).fail(function() {
+                        iziToast.error({
+                            message: 'Something went wrong',
+                            position: 'topRight'
+                        });
+                    });
+                }
+            };
+        });
     </script>
 @endpush

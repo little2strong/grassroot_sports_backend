@@ -93,15 +93,16 @@ class AdminController extends Controller
     {
         $role = $user->roles->first();
         $rolePermissions = $role ? $role->permissions->pluck('name')->toArray() : [];
-        $userPermissions = $user->permissions->pluck('name')->toArray();
-        // dd($rolePermissions, $userPermissions);
+        $allUserPermissions = $user->permissions->pluck('name')->toArray();
+        $directPermissions = array_diff($allUserPermissions, $rolePermissions);
+        
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
             'role' => $role?->name ?? '',
             'status' => $user->status,
             'rolePermissions' => $rolePermissions,
-            'userPermissions' => $userPermissions
+            'directPermissions' => $directPermissions
         ]);
     }
 
@@ -112,6 +113,7 @@ class AdminController extends Controller
             'name'   => 'required|string|max:255',
             'role'   => 'required|string',
             'status' => 'required|boolean',
+            'permissions' => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -130,6 +132,12 @@ class AdminController extends Controller
 
             // Sync role to user (replace old role)
             $user->syncRoles([$role->name]);
+
+            if (!empty($request->permissions)) {
+                $user->syncPermissions($request->permissions);
+            } else {
+                $user->syncPermissions([]);
+            }
 
             DB::commit();
 
