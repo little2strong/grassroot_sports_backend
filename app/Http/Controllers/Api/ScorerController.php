@@ -160,6 +160,7 @@ class ScorerController extends Controller
             'player_index' => 'nullable|integer|min:0',
         ]);
 
+
         if (empty($validated['user_id']) && !isset($validated['player_index'])) {
             return response()->json(['message' => 'Provide user_id or player_index for the new bowler.'], 422);
         }
@@ -299,7 +300,7 @@ class ScorerController extends Controller
     private function resolveScorerMatch(Request $request, int $matchId): Matchs
     {
         $user = auth('sanctum')->user();
-        $match = Matchs::with(['fixture:id,club_id,home_team_id,away_team_id,scorer_user_id', 'firstInnings:id,match_id,fixture_id,current_innings_number,runs,wickets,overs,legal_deliveries,result,striker_id,non_striker_id,current_bowler_id,external_striker_index,external_non_striker_index,external_bowler_index', 'secondInnings:id,match_id,fixture_id,current_innings_number,runs,wickets,overs,legal_deliveries,result,striker_id,non_striker_id,current_bowler_id,external_striker_index,external_non_striker_index,external_bowler_index'])->find($matchId);
+        $match = Matchs::with(['fixture:id,club_id,home_team_id,away_team_id,scorer_user_id', 'firstInnings:id,match_id,fixture_id,innings_number,runs,wickets,overs,legal_deliveries,result,striker_id,non_striker_id,current_bowler_id,external_striker_index,external_non_striker_index,external_bowler_index,batting_is_club,bowling_is_club', 'secondInnings:id,match_id,fixture_id,innings_number,runs,wickets,overs,legal_deliveries,result,striker_id,non_striker_id,current_bowler_id,external_striker_index,external_non_striker_index,external_bowler_index,batting_is_club,bowling_is_club'])->find($matchId);
 
         if (!$match) {
             abort(response()->json(['message' => 'Match not found.'], 404));

@@ -11,7 +11,7 @@ class Squad extends Model
 
     protected $fillable = [
         'fixture_id', 'team_id', 'user_id', 'position',
-        'jersey_number', 'is_captain', 'is_wicket_keeper', 'added_by',
+        'jersey_number', 'is_captain', 'is_wicket_keeper', 'role', 'added_by',
     ];
 
     protected $casts = [

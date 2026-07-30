@@ -84,8 +84,9 @@ class ScoringService
         $readiness = $this->getReadiness($fixture);
 
         if (!$readiness['can_start_match']) {
+            $missing = implode(', ', $readiness['missing']);
             throw ValidationException::withMessages([
-                'fixture' => ['Fixture is not ready to start. Complete all pre-match steps first.'],
+                'fixture' => ["Fixture is not ready to start. Missing: {$missing}"],
             ]);
         }
 
@@ -119,9 +120,11 @@ class ScoringService
             $innings = $this->createInnings($match, $fixture, 1, $battingIsClub, $clubTeamId);
             $this->initializeBattingScores($innings, $fixture, $battingIsClub, $clubTeamId);
             $this->setOpeners($innings, $fixture, $openers, $battingIsClub, $clubTeamId);
-            $this->setOpeningBowler($innings, $fixture, $openers, $battingIsClub, $clubTeamId);
 
             $match->update(['first_innings_id' => $innings->id]);
+            $match->refresh(); // Refresh to load the first_innings relationship
+
+            $this->setOpeningBowler($innings, $match, $fixture, $openers, $battingIsClub, $clubTeamId);
             $fixture->update([
                 'status' => 'live',
                 'started_at' => now(),
@@ -349,7 +352,6 @@ class ScoringService
             $innings = $this->createInnings($match, $fixture, 2, $battingIsClub, $clubTeamId, $target);
             $this->initializeBattingScores($innings, $fixture, $battingIsClub, $clubTeamId);
             $this->setOpeners($innings, $fixture, $openers, $battingIsClub, $clubTeamId);
-            $this->setOpeningBowler($innings, $fixture, $openers, $battingIsClub, $clubTeamId);
 
             $match->update([
                 'second_innings_id' => $innings->id,
@@ -358,6 +360,9 @@ class ScoringService
                 'current_ball_number' => 0,
                 'total_legal_deliveries' => 0,
             ]);
+            $match->refresh();
+
+            $this->setOpeningBowler($innings, $match, $fixture, $openers, $battingIsClub, $clubTeamId);
 
             return $innings->fresh(['battingScores', 'bowlingFigures']);
         });
@@ -547,17 +552,17 @@ class ScoringService
         $this->markBatterOnStrike($innings, ['user_id' => null, 'external_index' => $nonStrikerIndex], false);
     }
 
-    private function setOpeningBowler(Innings $innings, Fixture $fixture, array $openers, bool $battingIsClub, ?int $clubTeamId): void
+    private function setOpeningBowler(Innings $innings, Matchs $match, Fixture $fixture, array $openers, bool $battingIsClub, ?int $clubTeamId): void
     {
         if ($battingIsClub) {
-            $this->changeBowler($innings->match, [
+            $this->changeBowler($match, [
                 'player_index' => (int) $openers['opening_bowler_player_index'],
             ]);
 
             return;
         }
 
-        $this->changeBowler($innings->match, [
+        $this->changeBowler($match, [
             'user_id' => (int) $openers['opening_bowler_user_id'],
         ]);
     }

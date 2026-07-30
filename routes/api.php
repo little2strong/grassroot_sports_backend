@@ -68,8 +68,8 @@ Route::middleware('auth:sanctum')->prefix('club')->group(function () {
     Route::get('/{clubId}/fixtures/{fixtureId}', [ClubController::class, 'showFixture']);
     Route::post('/{clubId}/fixtures/{fixtureId}', [ClubController::class, 'updateFixture']);
     Route::get('/{clubId}/fixtures/{fixtureId}/availability', [ClubController::class, 'listFixtureAvailability']);
-    Route::post('/{clubId}/fixtures/{fixtureId}/club-squad', [ClubController::class, 'setFixtureClubSquad']);
-    Route::post('/{clubId}/fixtures/{fixtureId}/opponent-players', [ClubController::class, 'setFixtureOpponentPlayers']);
+    Route::post('/fixtures/{fixtureId}/club-squad', [ClubController::class, 'setFixtureClubSquad']);
+    Route::post('/fixtures/{fixtureId}/opponent-squad', [ClubController::class, 'setFixtureOpponentSquad']);
     Route::post('/{clubId}/fixtures/{fixtureId}/scorer', [ClubController::class, 'setFixtureScorer']);
     Route::post('/{clubId}/import/fixtures', [ClubController::class, 'importFixtures']);
     Route::post('/{clubId}/fees', [ClubController::class, 'collectFee']);

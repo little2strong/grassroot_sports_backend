@@ -179,7 +179,6 @@ class ClubController extends Controller
 
     public function createFixture(Request $request, int $clubId): JsonResponse
     {
-        // dd($request->all());
         $club = $this->resolveClub($request, $clubId);
 
         if (! $club) {
@@ -345,131 +344,115 @@ class ClubController extends Controller
         ]);
     }
 
-    public function setFixtureClubSquad(Request $request, int $clubId, int $fixtureId): JsonResponse
+    public function setFixtureClubSquad(Request $request, int $fixtureId): JsonResponse
     {
-        $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
+        $fixture = $this->resolveFixtureByFixtureId($request, $fixtureId);
 
         if (! $fixture) {
-            return response()->json(['message' => 'Fixture not found or access denied.'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 403);
         }
 
         if (in_array($fixture->status, ['live', 'paused', 'completed'], true)) {
-            return response()->json(['message' => 'Cannot change squad after the match is live or completed.'], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot change squad after the match is live or completed.',
+            ], 422);
         }
 
-        $club = $this->resolveClub($request, $clubId);
-
         $validated = $request->validate([
-            'team_id' => [
-                'sometimes',
-                'integer',
-                Rule::exists('teams', 'id')->where(fn ($query) => $query->where('club_id', $club->id)),
-            ],
-            'players' => 'required|array|min:1|max:25',
-            'players.*.user_id' => [
+            'players' => 'required|array|min:1|max:12',
+            'players.*.player_id' => [
                 'required',
                 'integer',
-                Rule::exists('users', 'id'),
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('user_type', 'player')),
             ],
-            'players.*.position' => ['sometimes', Rule::in(['playing_xi', 'reserve', 'twelfth_man'])],
-            'players.*.jersey_number' => 'sometimes|nullable|integer|min:0',
-            'players.*.is_captain' => 'sometimes|boolean',
-            'players.*.is_wicket_keeper' => 'sometimes|boolean',
-            'allow_unavailable' => 'sometimes|boolean',
-            'allow_maybe' => 'sometimes|boolean',
+            'players.*.role' => [
+                'required',
+                'string',
+                Rule::in(['captain', 'vice_captain', 'wicketkeeper', 'batsman', 'bowler', 'all_rounder']),
+            ],
         ]);
 
-        $teamId = $validated['team_id'] ?? $fixture->clubTeamId();
-        $allowUnavailable = $request->boolean('allow_unavailable');
-        $allowMaybe = $request->has('allow_maybe') ? $request->boolean('allow_maybe') : true;
+        $playerIds = collect($validated['players'])->pluck('player_id')->map(fn ($id) => (int) $id);
+
+        if ($playerIds->duplicates()->isNotEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => [
+                    'players' => ['Duplicate player IDs are not allowed.'],
+                ],
+            ], 422);
+        }
+
+        $club = $this->getFixtureClub($fixture);
+        $teamId = $fixture->clubTeamId();
+
+        if (! $teamId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No club team assigned to this fixture.',
+            ], 422);
+        }
 
         $team = Team::query()->where('id', $teamId)->where('club_id', $club->id)->first();
 
         if (! $team) {
-            return response()->json(['message' => 'Club team not found.'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Club team not found.',
+            ], 404);
         }
 
-        $playerIds = collect($validated['players'])->pluck('user_id')->map(fn ($id) => (int) $id);
+        $invalidPlayers = [];
 
-        if ($playerIds->duplicates()->isNotEmpty()) {
-            return response()->json(['message' => 'Each player can only be added once to the match squad.'], 422);
-        }
-
-        $captainCount = collect($validated['players'])->filter(fn ($player) => (bool) ($player['is_captain'] ?? false))->count();
-        $keeperCount = collect($validated['players'])->filter(fn ($player) => (bool) ($player['is_wicket_keeper'] ?? false))->count();
-
-        if ($captainCount > 1) {
-            return response()->json(['message' => 'Only one captain can be selected.'], 422);
-        }
-
-        if ($keeperCount > 1) {
-            return response()->json(['message' => 'Only one wicket keeper can be selected.'], 422);
-        }
-
-        $availabilityByUser = Availability::query()
-            ->where('fixture_id', $fixture->id)
-            ->where('team_id', $team->id)
-            ->whereIn('user_id', $playerIds)
-            ->get()
-            ->keyBy('user_id');
-
-        $addedById = auth('sanctum')->id();
-
-        $players = collect($validated['players'])->map(function (array $player) use (
-            $team,
-            $fixture,
-            $addedById,
-            $availabilityByUser,
-            $allowUnavailable,
-            $allowMaybe
-        ) {
-            $userId = (int) $player['user_id'];
-
-            $teamMember = TeamMember::query()
+        foreach ($validated['players'] as $player) {
+            $userId = (int) $player['player_id'];
+            $isMember = TeamMember::query()
                 ->where('team_id', $team->id)
                 ->where('user_id', $userId)
                 ->where('is_active', true)
-                ->first();
+                ->exists();
 
-            if (! $teamMember) {
-                throw ValidationException::withMessages([
-                    'players' => ["Player {$userId} is not an active member of the selected club squad."],
-                ]);
+            if (! $isMember) {
+                $invalidPlayers[] = $userId;
             }
+        }
 
-            $availability = $availabilityByUser->get($userId);
+        if (! empty($invalidPlayers)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => [
+                    'players' => ['One or more players do not belong to the selected club.'],
+                ],
+            ], 422);
+        }
 
-            if ($availability?->status === 'unavailable' && ! $allowUnavailable) {
-                throw ValidationException::withMessages([
-                    'players' => ["Player {$userId} is marked unavailable for this match."],
-                ]);
-            }
+        $addedById = auth('sanctum')->id();
 
-            if ($availability?->status === 'maybe' && ! $allowMaybe) {
-                throw ValidationException::withMessages([
-                    'players' => ["Player {$userId} is marked as maybe for this match."],
-                ]);
-            }
-
+        $squadPlayers = collect($validated['players'])->map(function (array $player) use (
+            $fixture,
+            $team,
+            $addedById
+        ) {
             return [
                 'fixture_id' => $fixture->id,
                 'team_id' => $team->id,
-                'user_id' => $teamMember->user_id,
-                'position' => $player['position'] ?? 'playing_xi',
-                'jersey_number' => $player['jersey_number'] ?? $teamMember->jersey_number,
-                'is_captain' => (bool) ($player['is_captain'] ?? false),
-                'is_wicket_keeper' => (bool) ($player['is_wicket_keeper'] ?? false),
+                'user_id' => (int) $player['player_id'],
+                'position' => 'playing_xi',
+                'jersey_number' => null,
+                'is_captain' => false,
+                'is_wicket_keeper' => false,
+                'role' => $player['role'],
                 'added_by' => $addedById,
             ];
         })->all();
 
-        DB::transaction(function () use ($fixture, $team, $players) {
-            $fixtureUpdates = $fixture->clubPlaysHome()
-                ? ['home_team_id' => $team->id]
-                : ['away_team_id' => $team->id];
-
-            $fixture->update($fixtureUpdates);
-
+        DB::transaction(function () use ($fixture, $team, $squadPlayers) {
             Squad::query()
                 ->where('fixture_id', $fixture->id)
                 ->where('team_id', $team->id)
@@ -482,100 +465,75 @@ class ClubController extends Controller
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
-            }, $players));
+            }, $squadPlayers));
         });
 
         $fixture->refresh()->load(['homeTeam', 'awayTeam', 'venue', 'scorer', 'squads.player']);
 
-        $selectedWithAvailability = collect($players)->map(function (array $player) use ($availabilityByUser) {
-            $availability = $availabilityByUser->get($player['user_id']);
-
-            return array_merge($player, [
-                'availability_status' => $availability?->status ?? 'pending',
-            ]);
-        })->values();
-
         return response()->json([
-            'message' => 'Club squad saved successfully.',
+            'success' => true,
+            'message' => 'Squad saved successfully.',
             'data' => [
                 'fixture' => $this->formatFixture($fixture),
-                'selected_players' => $selectedWithAvailability,
             ],
         ]);
     }
 
-    public function setFixtureOpponentPlayers(Request $request, int $clubId, int $fixtureId): JsonResponse
+    public function setFixtureOpponentSquad(Request $request, int $fixtureId): JsonResponse
     {
-        $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
+        $fixture = $this->resolveFixtureByFixtureId($request, $fixtureId);
 
         if (! $fixture) {
             return response()->json([
-                'message' => 'Fixture not found or access denied.',
-            ], 404);
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 403);
         }
 
         if (in_array($fixture->status, ['live', 'paused', 'completed'], true)) {
             return response()->json([
-                'message' => 'Cannot change opponent players after the match is live or completed.',
+                'success' => false,
+                'message' => 'Cannot change opponent squad after the match is live or completed.',
             ], 422);
         }
 
         $validated = $request->validate([
-            'opponent_name' => 'sometimes|nullable|string|max:255',
-
-            'players' => 'required|array|min:1|max:25',
-
+            'players' => 'required|array|min:1|max:12',
             'players.*.name' => 'required|string|max:255',
-
             'players.*.role' => [
                 'required',
-                Rule::in([
-                    'batsman',
-                    'bowler',
-                    'all_rounder',
-                    'wicket_keeper',
-                ]),
+                'string',
+                Rule::in(['captain', 'vice_captain', 'wicketkeeper', 'batsman', 'bowler', 'all_rounder']),
             ],
-
-            'players.*.is_captain' => 'sometimes|boolean',
-            'players.*.is_wicket_keeper' => 'sometimes|boolean',
         ]);
+
+        $playerNames = collect($validated['players'])->pluck('name')->map(fn ($name) => trim($name));
+
+        if ($playerNames->duplicates()->isNotEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => [
+                    'players' => ['Duplicate player names are not allowed.'],
+                ],
+            ], 422);
+        }
 
         $players = collect($validated['players'])
             ->map(function ($player) {
-
                 return [
                     'name' => trim($player['name']),
                     'role' => $player['role'],
-                    'is_captain' => (bool) ($player['is_captain'] ?? false),
-                    'is_wicket_keeper' => (bool) ($player['is_wicket_keeper'] ?? false),
                 ];
             })
             ->values()
             ->all();
 
-        if (empty($players)) {
-            return response()->json([
-                'message' => 'Opponent players cannot be empty.',
-            ], 422);
-        }
-
         $updates = [];
 
         if ($fixture->clubPlaysHome()) {
-
-            $updates['away_opponent_name'] = array_key_exists('opponent_name', $validated)
-                ? trim((string) ($validated['opponent_name'] ?? '')) ?: $fixture->away_opponent_name
-                : $fixture->away_opponent_name;
-
             $updates['away_opponent_players'] = $players;
-
         } else {
-
-            $updates['home_opponent_name'] = array_key_exists('opponent_name', $validated)
-                ? trim((string) ($validated['opponent_name'] ?? '')) ?: $fixture->home_opponent_name
-                : $fixture->home_opponent_name;
-
             $updates['home_opponent_players'] = $players;
         }
 
@@ -590,65 +548,13 @@ class ClubController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Opponent players saved successfully.',
+            'success' => true,
+            'message' => 'Opponent squad saved successfully.',
             'data' => [
                 'fixture' => $this->formatFixture($fixture),
             ],
         ]);
     }
-
-    // public function setFixtureOpponentPlayers(Request $request, int $clubId, int $fixtureId): JsonResponse
-    // {
-    //     $fixture = $this->resolveFixture($request, $clubId, $fixtureId);
-
-    //     if (!$fixture) {
-    //         return response()->json(['message' => 'Fixture not found or access denied.'], 404);
-    //     }
-
-    //     if (in_array($fixture->status, ['live', 'paused', 'completed'], true)) {
-    //         return response()->json(['message' => 'Cannot change opponent players after the match is live or completed.'], 422);
-    //     }
-
-    //     $validated = $request->validate([
-    //         'opponent_name' => 'sometimes|nullable|string|max:255',
-    //         'players' => 'required|array|min:1|max:25',
-    //         'players.*' => 'required|string|max:255',
-    //     ]);
-
-    //     $players = collect($validated['players'])
-    //         ->map(fn ($player) => trim((string) $player))
-    //         ->filter()
-    //         ->values()
-    //         ->all();
-
-    //     if (!$players) {
-    //         return response()->json(['message' => 'Opponent players cannot be empty.'], 422);
-    //     }
-
-    //     $updates = [];
-
-    //     if ($fixture->clubPlaysHome()) {
-    //         $updates['away_opponent_name'] = array_key_exists('opponent_name', $validated)
-    //             ? trim((string) ($validated['opponent_name'] ?? '')) ?: $fixture->away_opponent_name
-    //             : $fixture->away_opponent_name;
-    //         $updates['away_opponent_players'] = $players;
-    //     } else {
-    //         $updates['home_opponent_name'] = array_key_exists('opponent_name', $validated)
-    //             ? trim((string) ($validated['opponent_name'] ?? '')) ?: $fixture->home_opponent_name
-    //             : $fixture->home_opponent_name;
-    //         $updates['home_opponent_players'] = $players;
-    //     }
-
-    //     $fixture->update($updates);
-    //     $fixture->load(['homeTeam', 'awayTeam', 'venue', 'scorer', 'squads.player']);
-
-    //     return response()->json([
-    //         'message' => 'Opponent players saved successfully.',
-    //         'data' => [
-    //             'fixture' => $this->formatFixture($fixture),
-    //         ],
-    //     ]);
-    // }
 
     public function setFixtureScorer(Request $request, int $clubId, int $fixtureId): JsonResponse
     {
@@ -699,7 +605,6 @@ class ClubController extends Controller
 
     public function importFixtures(Request $request, int $clubId): JsonResponse
     {
-        // dd($request->all());
         $club = $this->resolveClub($request, $clubId);
 
         if (! $club) {
@@ -865,6 +770,37 @@ class ClubController extends Controller
             ->first();
     }
 
+    private function resolveFixtureByFixtureId(Request $request, int $fixtureId): ?Fixture
+    {
+        $user = auth('sanctum')->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        $fixture = Fixture::query()->where('id', $fixtureId)->first();
+
+        if (! $fixture) {
+            return null;
+        }
+
+        $isClubOwner = $user->user_type === 'club'
+            && $fixture->club_id === $user->ownedClub()->first()?->id;
+
+        $isAssignedScorer = $fixture->scorer_user_id === $user->id;
+
+        if ($isClubOwner || $isAssignedScorer) {
+            return $fixture;
+        }
+
+        return null;
+    }
+
+    private function getFixtureClub(Fixture $fixture): Club
+    {
+        return Club::query()->findOrFail($fixture->club_id);
+    }
+
     private function validateFixtureCreatePayload(Request $request): array
     {
         return $request->validate([
@@ -1020,6 +956,7 @@ class ClubController extends Controller
                     'jersey_number' => $squad->jersey_number,
                     'is_captain' => (bool) $squad->is_captain,
                     'is_wicket_keeper' => (bool) $squad->is_wicket_keeper,
+                    'role' => $squad->role,
                 ];
             })
             ->values()
