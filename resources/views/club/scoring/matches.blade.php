@@ -65,9 +65,14 @@
                                         </span>
                                     </td>
                                     <td class="text-end">
-                                        <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border">
-                                            <i class="fas fa-chart-bar me-1"></i> View
-                                        </a>
+                                        <div class="d-flex justify-content-end gap-1">
+                                            <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border" title="View Scorecard">
+                                                <i class="fas fa-chart-bar"></i>
+                                            </a>
+                                            <a href="{{ route('club.scoring.live', $fixture) }}" class="btn btn-sm btn-club-primary border" title="Live Score">
+                                                <i class="fas fa-play"></i> Live Score
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach
@@ -87,9 +92,14 @@
                                 <span>{{ $fixture->scheduled_date?->format('d M Y') }}</span>
                                 <span class="club-badge {{ in_array($fixture->status, ['live','paused']) ? 'danger' : 'muted' }}">{{ ucfirst($fixture->status) }}</span>
                             </div>
-                            <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border w-100">
-                                <i class="fas fa-chart-bar me-1"></i> View Scorecard
-                            </a>
+                            <div class="d-flex gap-2 w-100">
+                                <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border flex-grow-1">
+                                    <i class="fas fa-chart-bar me-1"></i> Scorecard
+                                </a>
+                                <a href="{{ route('club.scoring.live', $fixture) }}" class="btn btn-sm btn-club-primary flex-grow-1">
+                                    <i class="fas fa-play me-1"></i> Live Score
+                                </a>
+                            </div>
                         </div>
                     @endforeach
                 </div>

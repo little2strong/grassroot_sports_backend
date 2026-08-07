@@ -252,7 +252,7 @@ class Fixture extends Model
     public function getResultTextAttribute(): ?string
     {
         if (!$this->result_type || !$this->winner_team_id) {
-            return null;
+            return $this->result_description;
         }
 
         $winner = $this->winner?->short_name ?? $this->winner?->name;

@@ -137,6 +137,14 @@
                                             <a href="{{ route('club.fixtures.edit', $fixture) }}" class="btn btn-sm btn-light border" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
+                                            <form action="{{ route('club.fixtures.update', $fixture) }}" method="POST" class="d-inline fixture-live-form">
+                                                @csrf
+                                                @method('PUT')
+                                                <input type="hidden" name="status" value="live">
+                                                <button type="submit" class="btn btn-sm btn-light border text-success" title="Make Match Live">
+                                                    <i class="fas fa-play"></i>
+                                                </button>
+                                            </form>
                                             <form action="{{ route('club.fixtures.destroy', $fixture) }}" method="POST" class="d-inline fixture-delete-form">
                                                 @csrf
                                                 @method('DELETE')
@@ -217,6 +225,14 @@
                             <a href="{{ route('club.fixtures.edit', $fixture) }}" class="btn btn-sm btn-light border flex-grow-1">
                                 <i class="fas fa-edit me-1"></i> Edit
                             </a>
+                            <form action="{{ route('club.fixtures.update', $fixture) }}" method="POST" class="flex-grow-1 fixture-live-form">
+                                @csrf
+                                @method('PUT')
+                                <input type="hidden" name="status" value="live">
+                                <button type="submit" class="btn btn-sm btn-light border text-success w-100">
+                                    <i class="fas fa-play me-1"></i> Make Live
+                                </button>
+                            </form>
                             <form action="{{ route('club.fixtures.destroy', $fixture) }}" method="POST" class="flex-grow-1 fixture-delete-form">
                                 @csrf
                                 @method('DELETE')
@@ -295,6 +311,24 @@
                 confirmButtonColor: '#dc2626',
                 cancelButtonColor: '#6b7280',
                 confirmButtonText: 'Yes, delete',
+                cancelButtonText: 'Cancel'
+            }).then(function (result) {
+                if (result.isConfirmed) form.submit();
+            });
+        });
+    });
+
+    document.querySelectorAll('.fixture-live-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Make Match Live?',
+                text: 'This will change the fixture status to Live.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#059669',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Make Live',
                 cancelButtonText: 'Cancel'
             }).then(function (result) {
                 if (result.isConfirmed) form.submit();

@@ -4,6 +4,7 @@ use App\Http\Controllers\Club\ClubLoginController;
 use App\Http\Controllers\Club\DashboardController;
 use App\Http\Controllers\Club\FixtureController;
 use App\Http\Controllers\Club\InvitationController;
+use App\Http\Controllers\Club\LiveScoringController;
 use App\Http\Controllers\Club\PlayerController;
 use App\Http\Controllers\Club\ProfileController;
 use App\Http\Controllers\Club\ScoringController;
@@ -60,6 +61,9 @@ Route::prefix('club')->name('club.')->group(function () {
         Route::post('/fixtures/{fixture}/collect-fee', [FixtureController::class, 'collectFee'])->name('fixtures.collect-fee.store');
         Route::get('/fixtures/{fixture}/bulk-collect-fee', [FixtureController::class, 'showBulkCollectFee'])->name('fixtures.bulk-collect-fee');
         Route::post('/fixtures/{fixture}/bulk-collect-fee', [FixtureController::class, 'bulkCollectFee'])->name('fixtures.bulk-collect-fee.store');
+        
+        Route::get('/fixtures/{fixture}/insert-score', [FixtureController::class, 'showInsertScore'])->name('fixtures.insert-score');
+        Route::post('/fixtures/{fixture}/insert-score', [FixtureController::class, 'insertScore'])->name('fixtures.insert-score.store');
 
         Route::get('/players', [PlayerController::class, 'index'])->name('players.index');
         Route::get('/players/{player}', [PlayerController::class, 'show'])->name('players.show');
@@ -72,6 +76,20 @@ Route::prefix('club')->name('club.')->group(function () {
         Route::get('/scoring', [ScoringController::class, 'index'])->name('scoring.index');
         Route::get('/scoring/matches', [ScoringController::class, 'matches'])->name('scoring.matches');
         Route::get('/scoring/matches/{fixture}', [ScoringController::class, 'show'])->name('scoring.show');
+        
+        // Live Scoring Web endpoints
+        Route::get('/scoring/live/{fixture}', [LiveScoringController::class, 'live'])->name('scoring.live');
+        Route::get('/scoring/live/{fixture}/readiness', [LiveScoringController::class, 'readiness']);
+        Route::post('/scoring/live/{fixture}/toss', [LiveScoringController::class, 'recordToss']);
+        Route::post('/scoring/live/{fixture}/start', [LiveScoringController::class, 'startMatch']);
+        Route::get('/scoring/live/matches/{match}/live', [LiveScoringController::class, 'liveScore']);
+        Route::post('/scoring/live/matches/{match}/balls', [LiveScoringController::class, 'recordBall']);
+        Route::post('/scoring/live/matches/{match}/change-bowler', [LiveScoringController::class, 'changeBowler']);
+        Route::post('/scoring/live/matches/{match}/change-batter', [LiveScoringController::class, 'changeBatter']);
+        Route::post('/scoring/live/matches/{match}/end-innings', [LiveScoringController::class, 'endInnings']);
+        Route::post('/scoring/live/matches/{match}/start-second-innings', [LiveScoringController::class, 'startSecondInnings']);
+        Route::post('/scoring/live/matches/{match}/pause', [LiveScoringController::class, 'pauseMatch']);
+        Route::post('/scoring/live/matches/{match}/resume', [LiveScoringController::class, 'resumeMatch']);
     });
 });
 

@@ -373,6 +373,50 @@ class ScoringService
         $fixture = $match->fixture;
         $innings = $match->currentInnings();
 
+        $striker = null;
+        $nonStriker = null;
+        $bowler = null;
+
+        if ($innings) {
+            $strikerScore = $innings->battingScores->first(function ($score) use ($innings) {
+                return $innings->striker_id 
+                    ? $score->user_id === $innings->striker_id 
+                    : ($innings->external_striker_index !== null && $score->external_player_index === $innings->external_striker_index);
+            });
+            
+            $nonStrikerScore = $innings->battingScores->first(function ($score) use ($innings) {
+                return $innings->non_striker_id 
+                    ? $score->user_id === $innings->non_striker_id 
+                    : ($innings->external_non_striker_index !== null && $score->external_player_index === $innings->external_non_striker_index);
+            });
+            
+            $bowlerScore = $innings->bowlingFigures->first(function ($score) use ($innings) {
+                return $innings->current_bowler_id 
+                    ? $score->user_id === $innings->current_bowler_id 
+                    : ($innings->external_bowler_index !== null && $score->external_player_index === $innings->external_bowler_index);
+            });
+            
+            $striker = $strikerScore ? [
+                'name' => $strikerScore->player?->full_name ?? $strikerScore->external_player_name ?? 'Batter',
+                'runs' => $strikerScore->runs,
+                'balls' => $strikerScore->balls_faced,
+            ] : null;
+
+            $nonStriker = $nonStrikerScore ? [
+                'name' => $nonStrikerScore->player?->full_name ?? $nonStrikerScore->external_player_name ?? 'Batter',
+                'runs' => $nonStrikerScore->runs,
+                'balls' => $nonStrikerScore->balls_faced,
+            ] : null;
+
+            $bowler = $bowlerScore ? [
+                'name' => $bowlerScore->player?->full_name ?? $bowlerScore->external_player_name ?? 'Bowler',
+                'overs' => $bowlerScore->overs,
+                'maidens' => $bowlerScore->maidens ?? 0,
+                'runs' => $bowlerScore->runs_conceded,
+                'wickets' => $bowlerScore->wickets,
+            ] : null;
+        }
+
         return [
             'match' => [
                 'id' => $match->id,
@@ -396,6 +440,9 @@ class ScoringService
                 : [],
             'first_innings' => $match->firstInnings ? $this->formatInningsLiveQuick($match->firstInnings) : null,
             'second_innings' => $match->secondInnings ? $this->formatInningsLiveQuick($match->secondInnings) : null,
+            'striker' => $striker,
+            'non_striker' => $nonStriker,
+            'bowler' => $bowler,
         ];
     }
 

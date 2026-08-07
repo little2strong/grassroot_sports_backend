@@ -24,13 +24,28 @@
                         {{ $fixture->away_display_name }}
                     </p>
                     <p class="font-monospace small mb-2">
-                        {{ $fixture->home_team_runs }}/{{ $fixture->home_team_wickets }} ({{ $fixture->home_team_overs }})
+                        @if($fixture->isLive() && $fixture->match && $fixture->match->firstInnings && $fixture->match->firstInnings->batting_is_club === $fixture->clubPlaysHome())
+                            {{ $fixture->match->firstInnings->runs }}/{{ $fixture->match->firstInnings->wickets }} ({{ $fixture->match->firstInnings->overs }})
+                        @elseif($fixture->isLive() && $fixture->match && $fixture->match->secondInnings && $fixture->match->secondInnings->batting_is_club === $fixture->clubPlaysHome())
+                            {{ $fixture->match->secondInnings->runs }}/{{ $fixture->match->secondInnings->wickets }} ({{ $fixture->match->secondInnings->overs }})
+                        @else
+                            {{ $fixture->home_team_runs }}/{{ $fixture->home_team_wickets }} ({{ $fixture->home_team_overs }})
+                        @endif
                         —
-                        {{ $fixture->away_team_runs }}/{{ $fixture->away_team_wickets }} ({{ $fixture->away_team_overs }})
+                        @if($fixture->isLive() && $fixture->match && $fixture->match->firstInnings && $fixture->match->firstInnings->batting_is_club !== $fixture->clubPlaysHome())
+                            {{ $fixture->match->firstInnings->runs }}/{{ $fixture->match->firstInnings->wickets }} ({{ $fixture->match->firstInnings->overs }})
+                        @elseif($fixture->isLive() && $fixture->match && $fixture->match->secondInnings && $fixture->match->secondInnings->batting_is_club !== $fixture->clubPlaysHome())
+                            {{ $fixture->match->secondInnings->runs }}/{{ $fixture->match->secondInnings->wickets }} ({{ $fixture->match->secondInnings->overs }})
+                        @else
+                            {{ $fixture->away_team_runs }}/{{ $fixture->away_team_wickets }} ({{ $fixture->away_team_overs }})
+                        @endif
                     </p>
                     <div class="d-flex flex-wrap gap-2">
                         <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border">
                             <i class="fas fa-chart-bar me-1"></i> Scorecard
+                        </a>
+                        <a href="{{ route('club.scoring.live', $fixture) }}" class="btn btn-sm btn-club-primary border">
+                            <i class="fas fa-play me-1"></i> Live Score
                         </a>
                     @if($fixture->is_public && $fixture->public_share_slug)
                         <a href="{{ $fixture->public_url }}" target="_blank" class="btn btn-sm btn-club-primary">
@@ -70,9 +85,17 @@
                             <span class="text-muted fw-normal">vs</span>
                             {{ $fixture->away_display_name }}
                         </div>
-                        <div class="match-meta">
+                        <div class="match-meta mb-2">
                             <span><i class="far fa-calendar me-1"></i>{{ $fixture->scheduled_date?->format('d M Y') }}</span>
                             <span class="club-badge success">Scorer assigned</span>
+                        </div>
+                        <div class="d-flex gap-2 mt-2 w-100">
+                            <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border flex-grow-1">
+                                <i class="fas fa-chart-bar me-1"></i> Scorecard
+                            </a>
+                            <a href="{{ route('club.scoring.live', $fixture) }}" class="btn btn-sm btn-club-primary flex-grow-1">
+                                <i class="fas fa-play me-1"></i> Live Score
+                            </a>
                         </div>
                     </div>
                     @endforeach

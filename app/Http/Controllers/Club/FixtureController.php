@@ -629,4 +629,42 @@ class FixtureController extends Controller
             default => 20,
         };
     }
+
+    public function showInsertScore(Request $request, int $fixture): View
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        return view('club.fixtures.insert-score', [
+            'title' => 'Insert Match Score',
+            'club' => $club,
+            'fixture' => $record,
+        ]);
+    }
+
+    public function insertScore(Request $request, int $fixture): RedirectResponse
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        $validated = $request->validate([
+            'home_team_runs' => 'nullable|integer|min:0',
+            'home_team_wickets' => 'nullable|integer|min:0|max:10',
+            'home_team_overs' => 'nullable|numeric|min:0',
+            'away_team_runs' => 'nullable|integer|min:0',
+            'away_team_wickets' => 'nullable|integer|min:0|max:10',
+            'away_team_overs' => 'nullable|numeric|min:0',
+            'status' => 'required|string|in:completed,abandoned,live',
+            'result_description' => 'nullable|string|max:500',
+            'winner_team_id' => 'nullable|integer',
+            'result_type' => 'nullable|string|in:runs,wickets,tie,dl_method,draw,no_result,cancelled',
+            'result_margin' => 'nullable|integer|min:1',
+        ]);
+        
+        $record->update($validated);
+
+        return redirect()
+            ->route('club.fixtures.index')
+            ->with('success', 'Score inserted successfully.');
+    }
 }

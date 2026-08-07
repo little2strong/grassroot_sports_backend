@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Club;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Club\Concerns\ResolvesClub;
 use App\Models\Fixture;
 use App\Models\Matchs;
 use App\Models\User;
@@ -10,11 +11,26 @@ use App\Services\ScoringService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
-class ScorerController extends Controller
+class LiveScoringController extends Controller
 {
+    use ResolvesClub;
+
     public function __construct(private readonly ScoringService $scoring)
     {
+    }
+
+    public function live(Request $request, int $fixtureId): View
+    {
+        $fixture = $this->resolveScorerFixture($request, $fixtureId);
+        $club = $this->resolveClub($request);
+
+        return view('club.scoring.live', [
+            'title' => 'Live Scoring',
+            'club' => $club,
+            'fixture' => $fixture,
+        ]);
     }
 
     public function readiness(Request $request, int $fixtureId): JsonResponse
@@ -56,7 +72,7 @@ class ScorerController extends Controller
     public function startMatch(Request $request, int $fixtureId): JsonResponse
     {
         $fixture = $this->resolveScorerFixture($request, $fixtureId);
-        $user = auth('sanctum')->user();
+        $user = $request->user();
 
         $battingIsClub = $fixture->toss_winner_side === 'club'
             ? $fixture->toss_decision === 'bat'
@@ -289,8 +305,8 @@ class ScorerController extends Controller
 
     private function resolveScorerFixture(Request $request, int $fixtureId): Fixture
     {
-        $user = auth('sanctum')->user();
-        $fixture = Fixture::with(['match', 'squads' => fn ($q) => $q->select('id', 'fixture_id', 'user_id', 'team_id', 'position', 'jersey_number', 'is_captain', 'is_wicket_keeper')])->find($fixtureId);
+        $user = $request->user();
+        $fixture = Fixture::with(['match', 'squads' => fn ($q) => $q->select('id', 'fixture_id', 'user_id', 'team_id', 'position', 'jersey_number', 'is_captain', 'is_wicket_keeper')->with('player:id,first_name,last_name')])->find($fixtureId);
 
         if (!$fixture) {
             abort(response()->json(['message' => 'Fixture not found.'], 404));
@@ -305,7 +321,7 @@ class ScorerController extends Controller
 
     private function resolveScorerMatch(Request $request, int $matchId): Matchs
     {
-        $user = auth('sanctum')->user();
+        $user = $request->user();
         $match = Matchs::with(['fixture:id,club_id,home_team_id,away_team_id,scorer_user_id', 'firstInnings:id,match_id,fixture_id,innings_number,runs,wickets,overs,legal_deliveries,result,striker_id,non_striker_id,current_bowler_id,external_striker_index,external_non_striker_index,external_bowler_index,batting_is_club,bowling_is_club', 'secondInnings:id,match_id,fixture_id,innings_number,runs,wickets,overs,legal_deliveries,result,striker_id,non_striker_id,current_bowler_id,external_striker_index,external_non_striker_index,external_bowler_index,batting_is_club,bowling_is_club'])->find($matchId);
 
         if (!$match) {
