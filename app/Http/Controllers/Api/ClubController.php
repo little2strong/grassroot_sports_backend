@@ -372,7 +372,7 @@ class ClubController extends Controller
             'players.*.role' => [
                 'required',
                 'string',
-                Rule::in(['captain', 'vice_captain', 'wicketkeeper', 'batsman', 'bowler', 'all_rounder']),
+                Rule::in(['captain', 'vice_captain', 'wicket_keeper', 'wicketkeeper', 'batsman', 'bowler', 'all_rounder']),
             ],
         ]);
 
@@ -447,7 +447,7 @@ class ClubController extends Controller
                 'jersey_number' => null,
                 'is_captain' => false,
                 'is_wicket_keeper' => false,
-                'role' => $player['role'],
+                'role' => $player['role'] === 'wicket_keeper' ? 'wicketkeeper' : $player['role'],
                 'added_by' => $addedById,
             ];
         })->all();
