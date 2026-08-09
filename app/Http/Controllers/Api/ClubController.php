@@ -411,10 +411,10 @@ class ClubController extends Controller
 
         foreach ($validated['players'] as $player) {
             $userId = (int) $player['player_id'];
-            $isMember = TeamMember::query()
-                ->where('team_id', $team->id)
+            $isMember = \App\Models\ClubMember::query()
+                ->where('club_id', $club->id)
                 ->where('user_id', $userId)
-                ->where('is_active', true)
+                ->where('status', 'active')
                 ->exists();
 
             if (! $isMember) {

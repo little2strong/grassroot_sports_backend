@@ -120,6 +120,9 @@
                                         <a href="{{ route('club.fixtures.availability', $fixture) }}" class="btn btn-sm btn-light border" title="Availability">
                                             <i class="fas fa-user-check"></i>
                                         </a>
+                                        <a href="{{ route('club.fixtures.squad', $fixture) }}" class="btn btn-sm btn-light border" title="Assign Squad">
+                                            <i class="fas fa-users-cog"></i>
+                                        </a>
                                         <a href="{{ route('club.fixtures.collect-fee', $fixture) }}" class="btn btn-sm btn-light border" title="Collect Fee">
                                             <i class="fas fa-money-bill"></i>
                                         </a>

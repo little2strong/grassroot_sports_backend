@@ -56,6 +56,9 @@ Route::prefix('club')->name('club.')->group(function () {
         Route::put('/fixtures/{fixture}', [FixtureController::class, 'update'])->name('fixtures.update');
         Route::delete('/fixtures/{fixture}', [FixtureController::class, 'destroy'])->name('fixtures.destroy');
         Route::get('/fixtures/{fixture}/availability', [FixtureController::class, 'availability'])->name('fixtures.availability');
+        Route::get('/fixtures/{fixture}/squad', [FixtureController::class, 'squad'])->name('fixtures.squad');
+        Route::post('/fixtures/{fixture}/squad/club', [FixtureController::class, 'updateClubSquad'])->name('fixtures.squad.club.store');
+        Route::post('/fixtures/{fixture}/squad/opponent', [FixtureController::class, 'updateOpponentSquad'])->name('fixtures.squad.opponent.store');
         Route::post('/fixtures/{fixture}/scorer', [FixtureController::class, 'assignScorer'])->name('fixtures.assign-scorer');
         Route::get('/fixtures/{fixture}/collect-fee', [FixtureController::class, 'showCollectFee'])->name('fixtures.collect-fee');
         Route::post('/fixtures/{fixture}/collect-fee', [FixtureController::class, 'collectFee'])->name('fixtures.collect-fee.store');

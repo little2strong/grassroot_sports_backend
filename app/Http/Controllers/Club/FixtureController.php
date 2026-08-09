@@ -12,8 +12,10 @@ use App\Models\MatchFee;
 use App\Models\TeamMember;
 use App\Models\User;
 use App\Models\Venue;
+use App\Models\Squad;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -252,6 +254,151 @@ class FixtureController extends Controller
             'summary' => $summary,
             'statusFilter' => $statusFilter,
         ]);
+    }
+
+    public function squad(Request $request, int $fixture): View
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        $teamId = $record->clubTeamId();
+        $team = $teamId ? $club->teams()->where('id', $teamId)->first() : null;
+
+        $members = collect();
+        if ($team) {
+            $members = \App\Models\ClubMember::query()
+                ->where('club_id', $club->id)
+                ->where('status', 'active')
+                ->whereHas('user', fn($q) => $q->where('user_type', 'player'))
+                ->with(['user.playerProfile'])
+                ->get();
+        }
+
+        $clubSquad = $record->squads()->with('player')->get();
+
+        $opponentSquad = $record->clubPlaysHome() ? $record->away_opponent_players : $record->home_opponent_players;
+        if (!is_array($opponentSquad)) {
+            $opponentSquad = [];
+        }
+
+        return view('club.fixtures.squad', [
+            'title' => 'Assign Squad',
+            'club' => $club,
+            'fixture' => $record,
+            'team' => $team,
+            'members' => $members,
+            'clubSquad' => $clubSquad,
+            'opponentSquad' => collect($opponentSquad),
+            'roles' => ['captain' => 'Captain', 'vice_captain' => 'Vice Captain', 'wicketkeeper' => 'Wicket Keeper', 'batsman' => 'Batsman', 'bowler' => 'Bowler', 'all_rounder' => 'All Rounder'],
+        ]);
+    }
+
+    public function updateClubSquad(Request $request, int $fixture): RedirectResponse
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        if ($this->isLocked($record)) {
+            return back()->with('error', 'Cannot change squad while match is live or completed.');
+        }
+
+        $validated = $request->validate([
+            'players' => 'required|array|min:1|max:15',
+            'players.*.player_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($q) => $q->where('user_type', 'player')),
+            ],
+            'players.*.role' => [
+                'required',
+                'string',
+                Rule::in(['captain', 'vice_captain', 'wicket_keeper', 'wicketkeeper', 'batsman', 'bowler', 'all_rounder']),
+            ],
+        ]);
+
+        $teamId = $record->clubTeamId();
+        if (!$teamId) {
+            return back()->with('error', 'No club team assigned to this fixture.');
+        }
+        
+        $team = $club->teams()->find($teamId);
+        if (!$team) {
+            return back()->with('error', 'Club team not found.');
+        }
+
+        $addedById = $request->user()->id;
+
+        $squadPlayers = collect($validated['players'])->map(function (array $player) use ($record, $team, $addedById) {
+            return [
+                'fixture_id' => $record->id,
+                'team_id' => $team->id,
+                'user_id' => (int) $player['player_id'],
+                'position' => 'playing_xi',
+                'jersey_number' => null,
+                'is_captain' => false,
+                'is_wicket_keeper' => false,
+                'role' => $player['role'] === 'wicket_keeper' ? 'wicketkeeper' : $player['role'],
+                'added_by' => $addedById,
+            ];
+        })->all();
+
+        DB::transaction(function () use ($record, $team, $squadPlayers) {
+            Squad::query()
+                ->where('fixture_id', $record->id)
+                ->where('team_id', $team->id)
+                ->delete();
+
+            Squad::insert(array_map(function (array $player) {
+                $now = now();
+                return array_merge($player, [
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }, $squadPlayers));
+        });
+
+        return back()->with('success', 'Club squad updated successfully.');
+    }
+
+    public function updateOpponentSquad(Request $request, int $fixture): RedirectResponse
+    {
+        $club = $this->resolveClub($request);
+        $record = $this->resolveFixture($club, $fixture);
+
+        if ($this->isLocked($record)) {
+            return back()->with('error', 'Cannot change squad while match is live or completed.');
+        }
+
+        $validated = $request->validate([
+            'players' => 'required|array|min:1|max:15',
+            'players.*.name' => 'required|string|max:255',
+            'players.*.role' => [
+                'required',
+                'string',
+                Rule::in(['captain', 'vice_captain', 'wicket_keeper', 'wicketkeeper', 'batsman', 'bowler', 'all_rounder']),
+            ],
+        ]);
+
+        $players = collect($validated['players'])
+            ->map(function ($player) {
+                return [
+                    'name' => trim($player['name']),
+                    'role' => $player['role'] === 'wicket_keeper' ? 'wicketkeeper' : $player['role'],
+                ];
+            })
+            ->values()
+            ->all();
+
+        $updates = [];
+        if ($record->clubPlaysHome()) {
+            $updates['away_opponent_players'] = $players;
+        } else {
+            $updates['home_opponent_players'] = $players;
+        }
+
+        $record->update($updates);
+
+        return back()->with('success', 'Opponent squad updated successfully.');
     }
 
     public function assignScorer(Request $request, int $fixture): RedirectResponse
