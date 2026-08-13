@@ -98,3 +98,4 @@ Route::prefix('club')->name('club.')->group(function () {
 
 Route::get('/match/{slug}', [ScoringController::class, 'showPublic'])->name('public.score');
 Route::get('/match/{slug}/score', [ScoringController::class, 'showPublic'])->name('public.score.detail');
+Route::get('/player/{user}', [App\Http\Controllers\PublicPlayerController::class, 'show'])->name('public.player.show');

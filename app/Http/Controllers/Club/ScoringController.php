@@ -18,7 +18,7 @@ class ScoringController extends Controller
         $club = $this->resolveClub($request);
 
         $liveFixtures = Fixture::forClub($club->id)
-            ->with(['homeTeam', 'awayTeam', 'venue', 'match'])
+            ->with(['homeTeam', 'awayTeam', 'venue', 'match.firstInnings.wickets', 'match.secondInnings.wickets'])
             ->whereIn('status', ['live', 'paused'])
             ->orderByDesc('started_at')
             ->get();
@@ -32,11 +32,20 @@ class ScoringController extends Controller
             ->limit(10)
             ->get();
 
+        $completedFixtures = Fixture::forClub($club->id)
+            ->with(['homeTeam', 'awayTeam', 'venue'])
+            ->where('status', 'completed')
+            ->orderByDesc('completed_at')
+            ->orderByDesc('scheduled_date')
+            ->limit(5)
+            ->get();
+
         return view('club.scoring.index', [
             'title' => 'Scoring',
             'club' => $club,
             'liveFixtures' => $liveFixtures,
             'readyFixtures' => $readyFixtures,
+            'completedFixtures' => $completedFixtures,
         ]);
     }
 
@@ -150,6 +159,14 @@ class ScoringController extends Controller
                 ])
                 ->orderBy('innings_number')
                 ->get();
+        }
+
+        if ($request->ajax()) {
+            return view('club.scoring.partials.public-scorecard', [
+                'fixture' => $fixture,
+                'match' => $match,
+                'innings' => $innings,
+            ]);
         }
 
         return view('club.scoring.show-public', [

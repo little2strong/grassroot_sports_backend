@@ -25,17 +25,17 @@
                     </p>
                     <p class="font-monospace small mb-2">
                         @if($fixture->isLive() && $fixture->match && $fixture->match->firstInnings && $fixture->match->firstInnings->batting_is_club === $fixture->clubPlaysHome())
-                            {{ $fixture->match->firstInnings->runs }}/{{ $fixture->match->firstInnings->wickets }} ({{ $fixture->match->firstInnings->overs }})
+                            {{ $fixture->match->firstInnings->runs }}/{{ $fixture->match->firstInnings->real_wickets }} ({{ $fixture->match->firstInnings->overs }})
                         @elseif($fixture->isLive() && $fixture->match && $fixture->match->secondInnings && $fixture->match->secondInnings->batting_is_club === $fixture->clubPlaysHome())
-                            {{ $fixture->match->secondInnings->runs }}/{{ $fixture->match->secondInnings->wickets }} ({{ $fixture->match->secondInnings->overs }})
+                            {{ $fixture->match->secondInnings->runs }}/{{ $fixture->match->secondInnings->real_wickets }} ({{ $fixture->match->secondInnings->overs }})
                         @else
                             {{ $fixture->home_team_runs }}/{{ $fixture->home_team_wickets }} ({{ $fixture->home_team_overs }})
                         @endif
                         —
                         @if($fixture->isLive() && $fixture->match && $fixture->match->firstInnings && $fixture->match->firstInnings->batting_is_club !== $fixture->clubPlaysHome())
-                            {{ $fixture->match->firstInnings->runs }}/{{ $fixture->match->firstInnings->wickets }} ({{ $fixture->match->firstInnings->overs }})
+                            {{ $fixture->match->firstInnings->runs }}/{{ $fixture->match->firstInnings->real_wickets }} ({{ $fixture->match->firstInnings->overs }})
                         @elseif($fixture->isLive() && $fixture->match && $fixture->match->secondInnings && $fixture->match->secondInnings->batting_is_club !== $fixture->clubPlaysHome())
-                            {{ $fixture->match->secondInnings->runs }}/{{ $fixture->match->secondInnings->wickets }} ({{ $fixture->match->secondInnings->overs }})
+                            {{ $fixture->match->secondInnings->runs }}/{{ $fixture->match->secondInnings->real_wickets }} ({{ $fixture->match->secondInnings->overs }})
                         @else
                             {{ $fixture->away_team_runs }}/{{ $fixture->away_team_wickets }} ({{ $fixture->away_team_overs }})
                         @endif
@@ -103,5 +103,44 @@
             @endif
         </div>
     </div>
+
+    @if($completedFixtures->isNotEmpty())
+    <div class="club-card mt-4">
+        <div class="club-card-header">
+            <h6 class="mb-0"><i class="fas fa-check-circle me-2 text-success"></i>Recent Completed Matches</h6>
+            <a href="{{ route('club.scoring.matches', ['status' => 'completed']) }}" class="btn btn-sm btn-light border">
+                <i class="fas fa-list me-1"></i> View All
+            </a>
+        </div>
+        <div class="club-card-body p-0">
+            <div class="table-responsive">
+                <table class="table club-fixtures-table mb-0">
+                    <tbody>
+                        @foreach($completedFixtures as $fixture)
+                            <tr>
+                                <td>
+                                    <div class="fw-medium" style="color:var(--club-navy);">{{ $fixture->home_display_name }} <span class="text-muted fw-normal">vs</span> {{ $fixture->away_display_name }}</div>
+                                    <div class="font-monospace small text-muted mt-1">
+                                        @if($fixture->home_team_runs !== null)
+                                            {{ $fixture->home_team_runs }}/{{ $fixture->home_team_wickets }} ({{ $fixture->home_team_overs }}) — {{ $fixture->away_team_runs }}/{{ $fixture->away_team_wickets }} ({{ $fixture->away_team_overs }})
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="small text-muted text-end align-middle">
+                                    {{ $fixture->completed_at ? $fixture->completed_at->format('d M Y') : ($fixture->scheduled_date ? $fixture->scheduled_date->format('d M Y') : '') }}
+                                    <div class="mt-2">
+                                        <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border">
+                                            <i class="fas fa-chart-bar me-1"></i> Scorecard
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @endif
 </main>
 @endsection

@@ -156,4 +156,8 @@ class Innings extends Model
         if ($this->penalty_runs > 0) $parts[] = "Pen {$this->penalty_runs}";
         return implode(', ', $parts) ?: '0';
     }
+    public function getRealWicketsAttribute(): int
+    {
+        return $this->relationLoaded('wickets') ? $this->getRelation('wickets')->count() : $this->wickets;
+    }
 }

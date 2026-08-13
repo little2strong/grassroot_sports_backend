@@ -23,6 +23,15 @@ class Wicket extends Model
         'runs_at_dismissal' => 'integer',
     ];
 
+    protected $appends = [
+        'short_description',
+        'full_description',
+        'dismissal_type_label',
+        'bowler_name',
+        'fielder_one_name',
+        'fielder_two_name',
+    ];
+
     public function ballEvent()
     {
         return $this->belongsTo(BallEvent::class);
@@ -63,10 +72,55 @@ class Wicket extends Model
         return $this->belongsTo(User::class, 'fielder_two_id');
     }
 
+    public function getBowlerNameAttribute(): string
+    {
+        if ($this->bowler_id) {
+            return $this->bowler?->name ?? '';
+        }
+        if ($this->external_bowler_index !== null) {
+            $fixture = $this->fixture;
+            if ($fixture) {
+                $opponents = array_values($fixture->opponentPlayers() ?? []);
+                return $opponents[$this->external_bowler_index]['name'] ?? '';
+            }
+        }
+        return '';
+    }
+
+    public function getFielderOneNameAttribute(): string
+    {
+        if ($this->fielder_one_id) {
+            return $this->fielderOne?->name ?? '';
+        }
+        if ($this->external_fielder_one_index !== null) {
+            $fixture = $this->fixture;
+            if ($fixture) {
+                $opponents = array_values($fixture->opponentPlayers() ?? []);
+                return $opponents[$this->external_fielder_one_index]['name'] ?? '';
+            }
+        }
+        return '';
+    }
+
+    public function getFielderTwoNameAttribute(): string
+    {
+        if ($this->fielder_two_id) {
+            return $this->fielderTwo?->name ?? '';
+        }
+        if ($this->external_fielder_two_index !== null) {
+            $fixture = $this->fixture;
+            if ($fixture) {
+                $opponents = array_values($fixture->opponentPlayers() ?? []);
+                return $opponents[$this->external_fielder_two_index]['name'] ?? '';
+            }
+        }
+        return '';
+    }
+
     public function getShortDescriptionAttribute(): string
     {
-        $bowlerName = $this->bowler?->name ?? '';
-        $fielderName = $this->fielderOne?->name ?? '';
+        $bowlerName = $this->bowler_name;
+        $fielderName = $this->fielder_one_name;
 
         return match ($this->dismissal_type) {
             'bowled' => "b {$bowlerName}",

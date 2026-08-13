@@ -90,15 +90,23 @@
                         <span class="text-muted fw-normal">vs</span>
                         {{ $fixture->away_display_name }}
                     </p>
-                    @if($fixture->home_team_runs !== null)
                     <p class="font-monospace mb-2 small text-muted">
-                        {{ $fixture->home_team_runs }}/{{ $fixture->home_team_wickets }}
-                        ({{ $fixture->home_team_overs }})
+                        @if($fixture->isLive() && $fixture->match && $fixture->match->firstInnings && $fixture->match->firstInnings->batting_is_club === $fixture->clubPlaysHome())
+                            {{ $fixture->match->firstInnings->runs }}/{{ $fixture->match->firstInnings->real_wickets }} ({{ $fixture->match->firstInnings->overs }})
+                        @elseif($fixture->isLive() && $fixture->match && $fixture->match->secondInnings && $fixture->match->secondInnings->batting_is_club === $fixture->clubPlaysHome())
+                            {{ $fixture->match->secondInnings->runs }}/{{ $fixture->match->secondInnings->real_wickets }} ({{ $fixture->match->secondInnings->overs }})
+                        @else
+                            {{ $fixture->home_team_runs }}/{{ $fixture->home_team_wickets }} ({{ $fixture->home_team_overs }})
+                        @endif
                         —
-                        {{ $fixture->away_team_runs }}/{{ $fixture->away_team_wickets }}
-                        ({{ $fixture->away_team_overs }})
+                        @if($fixture->isLive() && $fixture->match && $fixture->match->firstInnings && $fixture->match->firstInnings->batting_is_club !== $fixture->clubPlaysHome())
+                            {{ $fixture->match->firstInnings->runs }}/{{ $fixture->match->firstInnings->real_wickets }} ({{ $fixture->match->firstInnings->overs }})
+                        @elseif($fixture->isLive() && $fixture->match && $fixture->match->secondInnings && $fixture->match->secondInnings->batting_is_club !== $fixture->clubPlaysHome())
+                            {{ $fixture->match->secondInnings->runs }}/{{ $fixture->match->secondInnings->real_wickets }} ({{ $fixture->match->secondInnings->overs }})
+                        @else
+                            {{ $fixture->away_team_runs }}/{{ $fixture->away_team_wickets }} ({{ $fixture->away_team_overs }})
+                        @endif
                     </p>
-                    @endif
                     <p class="text-muted mb-0" style="font-size:0.8rem;">
                         {{ $fixture->match_type_label ?? $fixture->match_type }}
                         @if($fixture->venue) · {{ $fixture->venue->name }} @endif

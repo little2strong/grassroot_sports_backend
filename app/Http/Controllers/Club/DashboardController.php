@@ -24,7 +24,6 @@ class DashboardController extends Controller
             'fixtures_total' => $club->fixtures_count,
             'fixtures_upcoming' => Fixture::forClub($club->id)
                 ->whereIn('status', ['published', 'draft'])
-                ->where('scheduled_date', '>=', now()->toDateString())
                 ->count(),
             'fixtures_live' => Fixture::forClub($club->id)
                 ->whereIn('status', ['live', 'paused'])
@@ -37,14 +36,13 @@ class DashboardController extends Controller
         $upcomingFixtures = Fixture::forClub($club->id)
             ->with(['homeTeam', 'awayTeam', 'venue'])
             ->whereIn('status', ['published', 'draft'])
-            ->where('scheduled_date', '>=', now()->toDateString())
             ->orderBy('scheduled_date')
             ->orderBy('scheduled_time')
             ->limit(5)
             ->get();
 
         $liveFixtures = Fixture::forClub($club->id)
-            ->with(['homeTeam', 'awayTeam', 'venue'])
+            ->with(['homeTeam', 'awayTeam', 'venue', 'match.firstInnings.wickets', 'match.secondInnings.wickets'])
             ->whereIn('status', ['live', 'paused'])
             ->get();
 

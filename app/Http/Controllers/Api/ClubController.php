@@ -185,7 +185,7 @@ class ClubController extends Controller
             return response()->json(['message' => 'Club not found or access denied.'], 404);
         }
 
-        $validated = $this->validateFixtureCreatePayload($request);
+        $validated = $this->validateFixtureCreatePayload($request, $club->id);
         $payload = $this->buildFixtureFromCreatePayload($validated);
 
         $status = $payload['status'] ?? 'draft';
@@ -219,7 +219,7 @@ class ClubController extends Controller
         }
 
         $club = $this->resolveClub($request, $clubId);
-        $validated = $this->validateFixtureSchedulePayload($request, $fixture);
+        $validated = $this->validateFixtureSchedulePayload($request, $fixture, $club->id);
 
         $newStatus = $validated['status'] ?? $fixture->status;
 
@@ -503,7 +503,7 @@ class ClubController extends Controller
             'players.*.role' => [
                 'required',
                 'string',
-                Rule::in(['captain', 'vice_captain', 'wicketkeeper', 'batsman', 'bowler', 'all_rounder']),
+                Rule::in(['captain', 'vice-captain', 'vice_captain', 'wicket-keeper', 'wicket_keeper', 'wicketkeeper', 'batsman', 'bowler', 'all-rounder', 'all_rounder']),
             ],
         ]);
 
@@ -521,9 +521,13 @@ class ClubController extends Controller
 
         $players = collect($validated['players'])
             ->map(function ($player) {
+                $role = str_replace('-', '_', $player['role']);
+                if ($role === 'wicket_keeper') {
+                    $role = 'wicketkeeper';
+                }
                 return [
                     'name' => trim($player['name']),
-                    'role' => $player['role'],
+                    'role' => $role,
                 ];
             })
             ->values()
@@ -552,6 +556,50 @@ class ClubController extends Controller
             'message' => 'Opponent squad saved successfully.',
             'data' => [
                 'fixture' => $this->formatFixture($fixture),
+            ],
+        ]);
+    }
+
+    public function getFixtureSquads(Request $request, int $fixtureId): JsonResponse
+    {
+        $fixture = $this->resolveFixtureByFixtureId($request, $fixtureId);
+
+        if (! $fixture) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 403);
+        }
+
+        $clubTeamId = $fixture->clubTeamId();
+        
+        $clubSquad = [];
+        if ($clubTeamId) {
+            $squads = \App\Models\Squad::with('player')
+                ->where('fixture_id', $fixture->id)
+                ->where('team_id', $clubTeamId)
+                ->get();
+
+            $clubSquad = $squads->map(function ($squad) {
+                return [
+                    'id' => $squad->id,
+                    'player_id' => $squad->user_id,
+                    'name' => $squad->player->name ?? null,
+                    'role' => $squad->role,
+                ];
+            })->all();
+        }
+
+        $opponentSquadRaw = $fixture->opponentPlayers() ?? [];
+        $opponentSquad = collect($opponentSquadRaw)->map(function ($player, $index) {
+            return array_merge(['index' => $index], $player);
+        })->all();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'club_squad' => $clubSquad,
+                'opponent_squad' => $opponentSquad,
             ],
         ]);
     }
@@ -801,10 +849,11 @@ class ClubController extends Controller
         return Club::query()->findOrFail($fixture->club_id);
     }
 
-    private function validateFixtureCreatePayload(Request $request): array
+    private function validateFixtureCreatePayload(Request $request, int $clubId): array
     {
         return $request->validate([
             'opponent_name' => 'required|string|max:255',
+            'club_team_id' => ['nullable', 'integer', Rule::exists('teams', 'id')->where('club_id', $clubId)],
             'club_plays_home' => 'sometimes|boolean',
             'venue_id' => ['nullable', 'integer', Rule::exists('venues', 'id')],
             'scheduled_date' => 'required|date',
@@ -821,6 +870,7 @@ class ClubController extends Controller
     {
         $clubPlaysHome = $validated['club_plays_home'] ?? true;
         $opponentName = trim($validated['opponent_name']);
+        $clubTeamId = $validated['club_team_id'] ?? null;
 
         $payload = [
             'club_plays_home' => $clubPlaysHome,
@@ -832,8 +882,8 @@ class ClubController extends Controller
             'ball_type' => $validated['ball_type'],
             'status' => $validated['status'] ?? 'draft',
             'is_public' => $validated['is_public'] ?? true,
-            'home_team_id' => null,
-            'away_team_id' => null,
+            'home_team_id' => $clubPlaysHome ? $clubTeamId : null,
+            'away_team_id' => $clubPlaysHome ? null : $clubTeamId,
             'home_opponent_name' => null,
             'away_opponent_name' => null,
             'home_opponent_players' => null,
@@ -849,10 +899,11 @@ class ClubController extends Controller
         return $payload;
     }
 
-    private function validateFixtureSchedulePayload(Request $request, Fixture $fixture): array
+    private function validateFixtureSchedulePayload(Request $request, Fixture $fixture, int $clubId): array
     {
         $validated = $request->validate([
             'opponent_name' => 'sometimes|string|max:255',
+            'club_team_id' => ['nullable', 'integer', Rule::exists('teams', 'id')->where('club_id', $clubId)],
             'club_plays_home' => 'sometimes|boolean',
             'venue_id' => ['nullable', 'integer', Rule::exists('venues', 'id')],
             'scheduled_date' => 'sometimes|date',
@@ -877,6 +928,30 @@ class ClubController extends Controller
             }
 
             unset($validated['opponent_name']);
+        }
+
+        if (array_key_exists('club_team_id', $validated)) {
+            $clubTeamId = $validated['club_team_id'];
+            $clubPlaysHome = $validated['club_plays_home'] ?? $fixture->clubPlaysHome();
+            
+            if ($clubPlaysHome) {
+                $validated['home_team_id'] = $clubTeamId;
+                $validated['away_team_id'] = null;
+            } else {
+                $validated['home_team_id'] = null;
+                $validated['away_team_id'] = $clubTeamId;
+            }
+            unset($validated['club_team_id']);
+        } elseif (array_key_exists('club_plays_home', $validated)) {
+            $clubTeamId = $fixture->clubTeamId();
+            $clubPlaysHome = (bool) $validated['club_plays_home'];
+            if ($clubPlaysHome) {
+                $validated['home_team_id'] = $clubTeamId;
+                $validated['away_team_id'] = null;
+            } else {
+                $validated['home_team_id'] = null;
+                $validated['away_team_id'] = $clubTeamId;
+            }
         }
 
         if (array_key_exists('club_plays_home', $validated)) {

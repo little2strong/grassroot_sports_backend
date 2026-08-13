@@ -76,4 +76,13 @@ class BowlingFigure extends Model
     {
         return $this->balls_bowled + $this->wides_bowled + $this->no_balls_bowled;
     }
+
+    public function getEconomyRateAttribute(): string
+    {
+        if ($this->balls_bowled == 0) {
+            return '0.00';
+        }
+        $overs = $this->balls_bowled / 6;
+        return number_format($this->runs_conceded / $overs, 2);
+    }
 }

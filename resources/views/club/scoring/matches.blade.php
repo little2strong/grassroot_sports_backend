@@ -69,9 +69,11 @@
                                             <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border" title="View Scorecard">
                                                 <i class="fas fa-chart-bar"></i>
                                             </a>
+                                            @if(!in_array($fixture->status, ['completed', 'cancelled']))
                                             <a href="{{ route('club.scoring.live', $fixture) }}" class="btn btn-sm btn-club-primary border" title="Live Score">
                                                 <i class="fas fa-play"></i> Live Score
                                             </a>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -96,9 +98,11 @@
                                 <a href="{{ route('club.scoring.show', $fixture) }}" class="btn btn-sm btn-light border flex-grow-1">
                                     <i class="fas fa-chart-bar me-1"></i> Scorecard
                                 </a>
+                                @if(!in_array($fixture->status, ['completed', 'cancelled']))
                                 <a href="{{ route('club.scoring.live', $fixture) }}" class="btn btn-sm btn-club-primary flex-grow-1">
                                     <i class="fas fa-play me-1"></i> Live Score
                                 </a>
+                                @endif
                             </div>
                         </div>
                     @endforeach
