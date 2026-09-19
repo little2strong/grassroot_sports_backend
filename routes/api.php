@@ -57,6 +57,7 @@ Route::middleware('auth:sanctum')->prefix('player')->group(function () {
     Route::get('/fixtures/{fixtureId}', [PlayerController::class, 'showFixture']);
     Route::post('/fixtures/{fixtureId}/availability', [PlayerController::class, 'setFixtureAvailability']);
     Route::post('/availability', [PlayerController::class, 'bulkSetAvailability']);
+    Route::post('/clubs/{clubId}/leave', [PlayerController::class, 'leaveClub']);
 });
 
 Route::middleware('auth:sanctum')->prefix('club')->group(function () {
@@ -106,5 +107,8 @@ Route::prefix('auth')->name('auth.')->group(function () {
     // Password reset
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
+    // Account Deletion
+    Route::middleware('auth:sanctum')->post('/delete-account', [AuthController::class, 'deleteAccount']);
 
 });

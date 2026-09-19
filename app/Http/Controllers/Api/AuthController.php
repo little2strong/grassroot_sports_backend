@@ -203,4 +203,30 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    public function deleteAccount(Request $request)
+    {
+        $user = auth('sanctum')->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        // Make inactive and add 'delete_' + timestamp to email
+        $user->update([
+            'is_active' => false,
+            'email' => 'delete_' . time() . '_' . $user->email,
+        ]);
+
+        // Remove from all clubs and squads
+        \App\Models\TeamMember::where('user_id', $user->id)->delete();
+        \App\Models\ClubMember::where('user_id', $user->id)->delete();
+
+        // Delete all access tokens
+        \DB::table('personal_access_tokens')->where('tokenable_id', $user->id)->delete();
+
+        return response()->json([
+            'message' => 'Account deleted successfully.',
+        ]);
+    }
 }

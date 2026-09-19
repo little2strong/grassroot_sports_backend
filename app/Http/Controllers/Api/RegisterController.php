@@ -14,6 +14,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Contracts\Encryption\DecryptException;
 
 class RegisterController extends Controller
 {
@@ -57,6 +58,7 @@ class RegisterController extends Controller
                     'user_id' => $user->id,
                 ])),
             ],
+            'otp' => $otp,
             'onboarding' => [
                 'steps' => [
                     [
@@ -79,7 +81,11 @@ class RegisterController extends Controller
             'otp' => 'required|string|min:4|max:10',
         ]);
 
-        $decoded = json_decode(decrypt($validated['token']), true);
+        try {
+            $decoded = json_decode(decrypt($validated['token']), true);
+        } catch (DecryptException $e) {
+            $decoded = null;
+        }
 
         if (!$decoded || empty($decoded['user_id'])) {
             throw ValidationException::withMessages([
@@ -131,7 +137,11 @@ class RegisterController extends Controller
             'token' => 'required|string',
         ]);
 
-        $decoded = json_decode(decrypt($validated['token']), true);
+        try {
+            $decoded = json_decode(decrypt($validated['token']), true);
+        } catch (DecryptException $e) {
+            $decoded = null;
+        }
 
         if (!$decoded || empty($decoded['user_id'])) {
             throw ValidationException::withMessages([
@@ -201,7 +211,11 @@ class RegisterController extends Controller
             ]);
         }
 
-        $decoded = json_decode(decrypt($token), true);
+        try {
+            $decoded = json_decode(decrypt($token), true);
+        } catch (DecryptException $e) {
+            $decoded = null;
+        }
 
         if (!$decoded) {
             throw ValidationException::withMessages([
@@ -250,7 +264,7 @@ class RegisterController extends Controller
             'batting_style' => 'nullable|in:right_hand,left_hand',
             'bowling_style' => 'nullable|in:right_arm_fast,right_arm_fast_medium,right_arm_medium,right_arm_off_break,right_arm_leg_break,left_arm_fast,left_arm_fast_medium,left_arm_medium,left_arm_orthodox,left_arm_chinaman',
             'primary_role' => 'nullable|in:batsman,bowler,all_rounder,wicket_keeper',
-            'image' => 'nullable|image|max:5048',
+            'image' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp,bmp,heic,heif|max:5048',
         ]);
 
         // Upload image before transaction
@@ -302,8 +316,8 @@ class RegisterController extends Controller
             'website' => 'nullable|url|max:255',
             'founded_year' => 'nullable|integer|min:1800|max:' . date('Y'),
             'description' => 'nullable|string|max:2000',
-            'logo' => 'nullable|image|max:1024',
-            'cover_image' => 'nullable|image|max:4096',
+            'logo' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp,bmp,heic,heif|max:1024',
+            'cover_image' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp,bmp,heic,heif|max:4096',
             'is_public' => 'boolean',
         ]);
 

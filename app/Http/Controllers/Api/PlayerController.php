@@ -17,6 +17,37 @@ use Illuminate\Validation\Rule;
 
 class PlayerController extends Controller
 {
+    public function leaveClub(Request $request, int $clubId): JsonResponse
+    {
+        $user = $this->resolvePlayer($request);
+
+        $clubMember = ClubMember::where('club_id', $clubId)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$clubMember) {
+            return response()->json(['message' => 'You are not an active member of this club.'], 404);
+        }
+
+        if ($clubMember->isOwner()) {
+            return response()->json(['message' => 'Club owners cannot leave their own club.'], 422);
+        }
+
+        // Remove from all squads in this club
+        $clubTeamIds = Team::where('club_id', $clubId)->pluck('id');
+        if ($clubTeamIds->isNotEmpty()) {
+            TeamMember::where('user_id', $user->id)
+                ->whereIn('team_id', $clubTeamIds)
+                ->delete();
+        }
+
+        // Remove club membership
+        $clubMember->delete();
+
+        return response()->json(['message' => 'You have successfully left the club.']);
+    }
+
     public function listFixtures(Request $request): JsonResponse
     {
         $user = $this->resolvePlayer($request);
